@@ -1,0 +1,29 @@
+# Local development only. In production the notary runs beside the chain node
+# and reuses the MariaDB instance that already serves the explorer and the site
+# (see deploy/INSTALL.md).
+services:
+  db:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: devroot
+      MARIADB_DATABASE: lks_notary
+      MARIADB_USER: notary
+      MARIADB_PASSWORD: notary
+    volumes:
+      - ./sql:/docker-entrypoint-initdb.d:ro
+      - notary-db:/var/lib/mysql
+    ports: ["3307:3306"]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+
+  api:
+    build: .
+    env_file: .env
+    depends_on:
+      db: {condition: service_healthy}
+    ports: ["8010:8010"]
+    command: uvicorn lks_notary.api:app --host 0.0.0.0 --port 8010
+
+volumes:
+  notary-db:

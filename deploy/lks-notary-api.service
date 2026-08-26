@@ -1,0 +1,29 @@
+[Unit]
+Description=LKS Notary API
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=notary
+Group=notary
+WorkingDirectory=/opt/lks-notary
+EnvironmentFile=/opt/lks-notary/.env
+# Ascolta sulla LAN perche' il reverse proxy sta su un'altra macchina.
+# L'accesso va ristretto con il firewall al solo indirizzo del proxy:
+#   ufw allow from PROXY_HOST to any port 8010 proto tcp
+# Se un giorno nginx girasse sullo stesso host, riporta --host a 127.0.0.1.
+ExecStart=/opt/lks-notary/.venv/bin/uvicorn lks_notary.api:app --host 0.0.0.0 --port 8010
+Restart=always
+RestartSec=5
+
+# The service only ever handles hashes, never documents, but there is no reason
+# to give it more of the filesystem than it needs.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/lks-notary/var
+
+[Install]
+WantedBy=multi-user.target

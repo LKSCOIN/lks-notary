@@ -1,0 +1,36 @@
+[project]
+name = "lks-notary"
+version = "0.1.0"
+description = "Notarization service anchoring document hashes to the LKSCOIN blockchain"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "pydantic>=2.6",
+    "sqlalchemy>=2.0",
+    "pymysql>=1.1",
+    "httpx>=0.27",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.4"]
+
+[tool.setuptools]
+# Dichiarati a mano: in questa cartella convivono il pacchetto lks_notary e il
+# modulo lks_verify.py, e l'auto-discovery di setuptools si ferma con
+# "Multiple top-level modules discovered in a flat-layout". lks_verify.py resta
+# fuori dal pacchetto di proposito: e' il verificatore indipendente, deve
+# funzionare copiandolo da solo su qualunque macchina.
+packages = ["lks_notary"]
+py-modules = []
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100

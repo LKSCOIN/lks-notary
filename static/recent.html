@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Latest notarisations — LKS Notary | LKSCOIN</title>
+<meta name="description" content="The latest proofs recorded by LKS Notary on the LKSCOIN blockchain, with transaction and block references anyone can check in the explorer.">
+<link rel="canonical" href="https://notary.lkschain.io/recent">
+<meta name="theme-color" content="#175DAB">
+<meta name="robots" content="index,follow">
+<link rel="icon" href="/static/assets/img/favicon.ico" sizes="any">
+<link rel="icon" href="/static/assets/img/favicon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="/static/assets/img/apple-touch-icon.png">
+<link rel="stylesheet" href="/static/assets/css/lks.css">
+<style>
+  /* Page-specific only. Everything else comes from the site design system. */
+  .drop{display:block;border:2px dashed var(--lks-blue-light);border-radius:var(--radius);
+        padding:52px 24px;text-align:center;cursor:pointer;background:var(--surface);
+        transition:border-color .18s var(--ease),background .18s var(--ease)}
+  .drop:hover,.drop.over{border-color:var(--lks-cyan);background:var(--surface-2)}
+  .drop input{display:none}
+  .drop .drop-title{font-weight:700;color:var(--ink);font-size:1.12rem;margin-bottom:.35em}
+  .hash-input{width:100%;padding:14px 16px;border:1px solid var(--line);border-radius:var(--radius-sm);
+        font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86rem;color:var(--ink-soft);background:#fff}
+  .hash-input:focus{outline:none;border-color:var(--lks-blue-light);box-shadow:0 0 0 3px rgba(46,134,214,.14)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.8rem;word-break:break-all}
+  .kv{display:flex;gap:18px;padding:13px 0;border-bottom:1px solid var(--line)}
+  .kv:last-child{border-bottom:none}
+  .kv .k{flex:0 0 220px;color:var(--muted);font-weight:600;font-size:.92rem}
+  .kv .v{flex:1;min-width:0}
+  .verdict{display:inline-flex;align-items:center;gap:9px;padding:7px 16px;border-radius:999px;
+        font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .v-ok{background:rgba(30,158,106,.12);color:var(--ok);border:1px solid rgba(30,158,106,.3)}
+  .v-wait{background:rgba(192,138,30,.12);color:var(--warn);border:1px solid rgba(192,138,30,.3)}
+  .v-bad{background:rgba(190,52,42,.10);color:#BE342A;border:1px solid rgba(190,52,42,.28)}
+  .chk{display:flex;align-items:flex-start;gap:13px;padding:11px 0}
+  .chk svg{flex:0 0 22px;height:22px;margin-top:1px}
+  .chk .lbl{font-weight:600;color:var(--ink)}
+  .chk .det{color:var(--muted);font-size:.82rem}
+  .privacy-note{display:flex;gap:18px;align-items:flex-start}
+  .privacy-note svg{flex:0 0 30px;height:30px;stroke:var(--ok);fill:none;stroke-width:1.6;
+        stroke-linecap:round;stroke-linejoin:round;margin-top:2px}
+  .ext{margin-left:6px;vertical-align:-1px}
+  .step-head{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+  .step-num{flex:0 0 34px;width:34px;height:34px;border-radius:50%;background:var(--lks-blue);color:#fff;
+        display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.95rem}
+  .field{margin-top:16px}
+  .field label{display:block;font-weight:600;color:var(--ink);font-size:.92rem;margin-bottom:6px}
+  .remember{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:.9rem;color:var(--muted);cursor:pointer}
+  .remember input{width:16px;height:16px;accent-color:var(--lks-blue)}
+  .hashbox{display:flex;align-items:baseline;gap:14px;margin-top:18px;padding:14px 16px;
+        background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm)}
+  .hashbox .k{color:var(--muted);font-weight:600;font-size:.82rem;flex:0 0 auto}
+  .receipt-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:12px}
+  .receipt-grid{display:flex;gap:30px;align-items:flex-start;flex-wrap:wrap}
+  .receipt-grid > div:first-child{flex:1 1 340px;min-width:0}
+  .qr-col{flex:0 0 auto;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px}
+  .qr-col .muted{font-size:.78rem}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:22px 0 18px;border-bottom:1px solid var(--line)}
+  .tab{background:none;border:none;padding:10px 16px;font:inherit;font-size:.93rem;font-weight:600;
+        color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tab:hover{color:var(--ink)}
+  .tab.is-active{color:var(--lks-blue);border-bottom-color:var(--lks-blue)}
+  .feed{width:100%;border-collapse:collapse;font-size:.9rem}
+  .feed th{text-align:left;padding:12px 14px;background:var(--surface);color:var(--ink);
+        font-size:.76rem;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid var(--line)}
+  .feed td{padding:13px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  .feed tbody tr:last-child td{border-bottom:none}
+  .feed tbody tr:hover{background:var(--surface)}
+  .feed .hash{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.78rem;word-break:break-all}
+  .state{display:inline-flex;align-items:center;gap:7px;font-size:.78rem;font-weight:700;
+        padding:4px 11px;border-radius:999px;white-space:nowrap}
+  .s-pending{background:rgba(97,117,140,.12);color:var(--muted)}
+  .s-batched{background:rgba(46,134,214,.12);color:var(--lks-blue)}
+  .s-confirmed{background:rgba(30,158,106,.12);color:var(--ok)}
+  .s-anchored{background:rgba(192,138,30,.14);color:var(--warn)}
+  .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:26px}
+  .statbox{border:1px solid var(--line);border-radius:var(--radius-sm);padding:18px 20px;background:#fff}
+  .statbox .n{font-size:1.7rem;font-weight:700;color:var(--lks-blue);line-height:1.1}
+  .statbox .l{font-size:.82rem;color:var(--muted)}
+  .table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:#fff}
+  .keyline{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .keyid{font-size:.84rem;color:var(--muted);font-family:ui-monospace,monospace}
+  .linkbtn{background:none;border:none;padding:0;font:inherit;font-size:.84rem;
+        color:var(--lks-blue-light);text-decoration:underline;cursor:pointer}
+  .keynotes{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin-top:22px}
+  .keynote{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);padding:16px 18px}
+  .keynote h4{margin:0 0 6px;font-size:.95rem;color:var(--ink)}
+  .keynote p{margin:0;font-size:.88rem;color:var(--muted)}
+  button.btn{font:inherit;cursor:pointer;border:none}
+  button.btn:disabled{opacity:.45;cursor:not-allowed}
+  @media(max-width:700px){.kv{flex-direction:column;gap:2px}.kv .k{flex:none}}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <nav class="nav" aria-label="Main">
+      <a class="brand" href="https://www.lkschain.io/index.html" aria-label="LKSCOIN — LKS Foundation">
+        <img class="brand-logo" src="/static/assets/img/lks-foundation-logo.png" alt="LKS Foundation" width="680" height="228">
+      </a>
+      <button class="nav-toggle" aria-label="Open menu" aria-expanded="false"><span></span><span></span><span></span></button>
+      <ul class="nav-links">
+        <li><a href="https://www.lkschain.io/notary.html">Notary</a></li>
+        <li><a href="https://www.lkschain.io/trace.html">Trace</a></li>
+        <li><a href="https://www.lkschain.io/technology.html">Technology</a></li>
+        <li><a href="https://www.lkschain.io/developers.html">Developers</a></li>
+        <li><a href="https://www.lkschain.io/network.html">Network</a></li>
+        <li><a href="https://www.lkschain.io/roadmap.html">Roadmap</a></li>
+        <li><a href="https://www.lkschain.io/foundation.html">Foundation</a></li>
+        <li><a href="https://www.lkschain.io/resources.html">Resources</a></li>
+        <li><a class="nav-explorer" href="https://www.lkschain.io/blockchain.html">Explorer</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<section class="hero hero-sub hero-photo">
+  <img class="hero-bg" src="/static/assets/img/hero/blocks.jpg" alt="" width="1920" height="872" fetchpriority="high" decoding="async">
+  <div class="hero-mesh"></div>
+  <div class="container">
+    <span class="eyebrow" style="color:#6FD8EC">LKS Notary</span>
+    <h1>Latest notarisations</h1>
+    <p class="hero-lead">Every proof recorded by the service, newest first, with the transaction and block you can check yourself in the explorer. Fingerprints only: what was notarised, and by whom, is not ours to publish.</p>
+    <div class="btn-row">
+      <a class="btn btn-light" href="/notarize">Notarise a document</a>
+      <a class="btn btn-ghost-light" href="/">Verify a document</a>
+      <a class="btn btn-ghost-light" href="https://www.lkschain.io/notary.html">How it works</a>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+
+    <div class="stats-row" id="stats"></div>
+
+    <div class="table-scroll">
+      <table class="feed">
+        <thead>
+          <tr>
+            <th>Recorded at (UTC)</th>
+            <th>Document fingerprint</th>
+            <th>Status</th>
+            <th>Transaction</th>
+            <th>Block</th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <tr><td colspan="5" class="muted">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="muted" style="margin-top:20px">Refreshes every 30 seconds. A fingerprint stays
+    <em>pending</em> until the next batch, <em>batched</em> until the transaction is in a block,
+    then <em>confirmed</em>, and finally <em>anchored</em> once the Bitcoin attestation completes.</p>
+
+    <div class="callout" style="margin-top:30px">
+      <h4>Why the submitter is not listed</h4>
+      <p class="mb-0">A fingerprint tells you nothing about a document — that is the point of
+      publishing it. A chronological list of who submitted what, how often and under which
+      internal reference would tell you a great deal about our customers, so it is not here.
+      Anyone holding a fingerprint or a certificate can still see everything about it on the
+      <a href="/">verification page</a>.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="https://www.lkschain.io/index.html" aria-label="LKSCOIN — LKS Foundation">
+          <img class="brand-logo-footer" src="/static/assets/img/lks-foundation-logo-white.png" alt="LKS Foundation" width="680" height="228">
+        </a>
+        <p>A decentralised network for certifying, notarising, verifying and tracing data, documents, content and processes.</p>
+      </div>
+      <div><h4>Services</h4><a href="https://www.lkschain.io/notary.html">LKS Notary</a><a href="/notarize">Notarise a document</a><a href="/">Verify a document</a><a href="/recent">Latest notarisations</a><a href="https://www.lkschain.io/trace.html">LKS Trace</a><a href="https://www.lkschain.io/technology.html#identity">LKS Identity</a><a href="https://www.lkschain.io/developers.html">Service API</a></div>
+      <div><h4>Network</h4><a href="https://www.lkschain.io/network.html">Masternodes</a><a href="https://www.lkschain.io/network.html#downloads">Wallet &amp; Core</a><a href="https://www.lkschain.io/blockchain.html">Block explorer</a><a href="https://www.lkschain.io/technology.html">Security model</a></div>
+      <div><h4>Foundation</h4><a href="https://www.lkschain.io/foundation.html">About</a><a href="https://www.lkschain.io/foundation.html#team">Team</a><a href="https://www.lkschain.io/resources.html">Resources</a><a href="https://www.lkschain.io/roadmap.html">Roadmap</a><a href="https://www.lkschain.io/foundation.html#contact">Contact</a></div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; <span data-year></span> LKS Foundation — Italian non-profit foundation</span>
+      <span><a href="https://www.lkschain.io/legal.html" style="display:inline">Legal &amp; privacy</a> &nbsp;·&nbsp; <a href="https://www.lkschain.io/legal.html#cookies" style="display:inline">Cookies</a></span>
+    </div>
+    <p class="footer-note">Nothing on this site constitutes financial, investment or legal advice, nor an offer to sell or solicit the purchase of any asset. Statements about services under development describe planned functionality and do not represent currently available features. Regulatory references are informational and do not replace a legal opinion.</p>
+  </div>
+</footer>
+
+<script src="/static/assets/js/lks.js"></script>
+<script>
+const EXPLORER = {
+  tx:    "https://www.lkschain.io/transactions.html?hash={id}",
+  block: "https://www.lkschain.io/blocks.html?blocknum={id}"
+};
+const esc = s => String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const short = h => h.slice(0, 16) + "…" + h.slice(-8);
+
+function link(kind, id, label){
+  const tpl = EXPLORER[kind];
+  if (!tpl || id === null || id === undefined) return '<span class="muted">—</span>';
+  return `<a href="${tpl.replace("{id}", encodeURIComponent(id))}" target="_blank" rel="noopener">${esc(label)}</a>`;
+}
+
+function state(item){
+  if (item.anchored) return '<span class="state s-anchored">anchored</span>';
+  if (item.status === "confirmed") return '<span class="state s-confirmed">confirmed</span>';
+  if (item.status === "batched") return '<span class="state s-batched">batched</span>';
+  return '<span class="state s-pending">pending</span>';
+}
+
+async function load(){
+  try{
+    const data = await (await fetch("/api/v1/recent?limit=50")).json();
+    document.getElementById("stats").innerHTML = `
+      <div class="statbox"><div class="n">${data.totals.notarizations.toLocaleString("en-US")}</div><div class="l">Proofs recorded</div></div>
+      <div class="statbox"><div class="n">${data.totals.batches.toLocaleString("en-US")}</div><div class="l">Blockchain transactions</div></div>
+      <div class="statbox"><div class="n">${data.totals.anchored_batches.toLocaleString("en-US")}</div><div class="l">Anchored to Bitcoin</div></div>`;
+
+    const rows = document.getElementById("rows");
+    if (!data.items.length){
+      rows.innerHTML = '<tr><td colspan="5" class="muted">Nothing recorded yet.</td></tr>';
+      return;
+    }
+    rows.innerHTML = data.items.map(item => `<tr>
+        <td class="muted">${esc(item.received_at.replace("T"," ").replace("Z",""))}</td>
+        <td class="hash"><a href="/v/${esc(item.certificate_id)}">${esc(short(item.document_hash))}</a></td>
+        <td>${state(item)}</td>
+        <td>${item.txid ? link("tx", item.txid, short(item.txid)) : '<span class="muted">—</span>'}</td>
+        <td>${item.block_height ? link("block", item.block_height, "#" + item.block_height) : '<span class="muted">—</span>'}</td>
+      </tr>`).join("");
+  }catch(err){
+    document.getElementById("rows").innerHTML =
+      `<tr><td colspan="5" class="muted">Could not load the feed: ${esc(err.message)}</td></tr>`;
+  }
+}
+
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>

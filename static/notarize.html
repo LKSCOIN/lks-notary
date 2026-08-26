@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notarise a document — LKS Notary | LKSCOIN</title>
+<meta name="description" content="Record a proof that your document exists on the LKSCOIN blockchain, anchored to Bitcoin. The file never leaves your device: only its SHA-256 fingerprint is transmitted.">
+<link rel="canonical" href="https://notary.lkschain.io/notarize">
+<meta name="theme-color" content="#175DAB">
+<meta name="robots" content="index,follow">
+<link rel="icon" href="/static/assets/img/favicon.ico" sizes="any">
+<link rel="icon" href="/static/assets/img/favicon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="/static/assets/img/apple-touch-icon.png">
+<link rel="stylesheet" href="/static/assets/css/lks.css">
+<style>
+  /* Page-specific only. Everything else comes from the site design system. */
+  .drop{display:block;border:2px dashed var(--lks-blue-light);border-radius:var(--radius);
+        padding:52px 24px;text-align:center;cursor:pointer;background:var(--surface);
+        transition:border-color .18s var(--ease),background .18s var(--ease)}
+  .drop:hover,.drop.over{border-color:var(--lks-cyan);background:var(--surface-2)}
+  .drop input{display:none}
+  .drop .drop-title{font-weight:700;color:var(--ink);font-size:1.12rem;margin-bottom:.35em}
+  .hash-input{width:100%;padding:14px 16px;border:1px solid var(--line);border-radius:var(--radius-sm);
+        font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86rem;color:var(--ink-soft);background:#fff}
+  .hash-input:focus{outline:none;border-color:var(--lks-blue-light);box-shadow:0 0 0 3px rgba(46,134,214,.14)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.8rem;word-break:break-all}
+  .kv{display:flex;gap:18px;padding:13px 0;border-bottom:1px solid var(--line)}
+  .kv:last-child{border-bottom:none}
+  .kv .k{flex:0 0 220px;color:var(--muted);font-weight:600;font-size:.92rem}
+  .kv .v{flex:1;min-width:0}
+  .verdict{display:inline-flex;align-items:center;gap:9px;padding:7px 16px;border-radius:999px;
+        font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .v-ok{background:rgba(30,158,106,.12);color:var(--ok);border:1px solid rgba(30,158,106,.3)}
+  .v-wait{background:rgba(192,138,30,.12);color:var(--warn);border:1px solid rgba(192,138,30,.3)}
+  .v-bad{background:rgba(190,52,42,.10);color:#BE342A;border:1px solid rgba(190,52,42,.28)}
+  .chk{display:flex;align-items:flex-start;gap:13px;padding:11px 0}
+  .chk svg{flex:0 0 22px;height:22px;margin-top:1px}
+  .chk .lbl{font-weight:600;color:var(--ink)}
+  .chk .det{color:var(--muted);font-size:.82rem}
+  .privacy-note{display:flex;gap:18px;align-items:flex-start}
+  .privacy-note svg{flex:0 0 30px;height:30px;stroke:var(--ok);fill:none;stroke-width:1.6;
+        stroke-linecap:round;stroke-linejoin:round;margin-top:2px}
+  .ext{margin-left:6px;vertical-align:-1px}
+  .step-head{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+  .step-num{flex:0 0 34px;width:34px;height:34px;border-radius:50%;background:var(--lks-blue);color:#fff;
+        display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.95rem}
+  .field{margin-top:16px}
+  .field label{display:block;font-weight:600;color:var(--ink);font-size:.92rem;margin-bottom:6px}
+  .remember{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:.9rem;color:var(--muted);cursor:pointer}
+  .remember input{width:16px;height:16px;accent-color:var(--lks-blue)}
+  .hashbox{display:flex;align-items:baseline;gap:14px;margin-top:18px;padding:14px 16px;
+        background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm)}
+  .hashbox .k{color:var(--muted);font-weight:600;font-size:.82rem;flex:0 0 auto}
+  .receipt-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:12px}
+  .receipt-grid{display:flex;gap:30px;align-items:flex-start;flex-wrap:wrap}
+  .receipt-grid > div:first-child{flex:1 1 340px;min-width:0}
+  .qr-col{flex:0 0 auto;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px}
+  .qr-col .muted{font-size:.78rem}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:22px 0 18px;border-bottom:1px solid var(--line)}
+  .tab{background:none;border:none;padding:10px 16px;font:inherit;font-size:.93rem;font-weight:600;
+        color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tab:hover{color:var(--ink)}
+  .tab.is-active{color:var(--lks-blue);border-bottom-color:var(--lks-blue)}
+  .keyline{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .keyid{font-size:.84rem;color:var(--muted);font-family:ui-monospace,monospace}
+  .linkbtn{background:none;border:none;padding:0;font:inherit;font-size:.84rem;
+        color:var(--lks-blue-light);text-decoration:underline;cursor:pointer}
+  .keynotes{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin-top:22px}
+  .keynote{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);padding:16px 18px}
+  .keynote h4{margin:0 0 6px;font-size:.95rem;color:var(--ink)}
+  .keynote p{margin:0;font-size:.88rem;color:var(--muted)}
+  button.btn{font:inherit;cursor:pointer;border:none}
+  button.btn:disabled{opacity:.45;cursor:not-allowed}
+  @media(max-width:700px){.kv{flex-direction:column;gap:2px}.kv .k{flex:none}}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <nav class="nav" aria-label="Main">
+      <a class="brand" href="https://www.lkschain.io/index.html" aria-label="LKSCOIN — LKS Foundation">
+        <img class="brand-logo" src="/static/assets/img/lks-foundation-logo.png" alt="LKS Foundation" width="680" height="228">
+      </a>
+      <button class="nav-toggle" aria-label="Open menu" aria-expanded="false"><span></span><span></span><span></span></button>
+      <ul class="nav-links">
+        <li><a href="https://www.lkschain.io/notary.html">Notary</a></li>
+        <li><a href="https://www.lkschain.io/trace.html">Trace</a></li>
+        <li><a href="https://www.lkschain.io/technology.html">Technology</a></li>
+        <li><a href="https://www.lkschain.io/developers.html">Developers</a></li>
+        <li><a href="https://www.lkschain.io/network.html">Network</a></li>
+        <li><a href="https://www.lkschain.io/roadmap.html">Roadmap</a></li>
+        <li><a href="https://www.lkschain.io/foundation.html">Foundation</a></li>
+        <li><a href="https://www.lkschain.io/resources.html">Resources</a></li>
+        <li><a class="nav-explorer" href="https://www.lkschain.io/blockchain.html">Explorer</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<section class="hero hero-sub hero-photo">
+  <img class="hero-bg" src="/static/assets/img/hero/chain-alt.jpg" alt="" width="1920" height="872" fetchpriority="high" decoding="async">
+  <div class="hero-mesh"></div>
+  <div class="container">
+    <span class="eyebrow" style="color:#6FD8EC">LKS Notary</span>
+    <h1>Notarise a document</h1>
+    <p class="hero-lead">Record a proof that your document exists, right now, on the LKSCOIN blockchain — and have it anchored to Bitcoin within hours. The file stays on your device: only its fingerprint is transmitted.</p>
+    <div class="btn-row">
+      <a class="btn btn-ghost-light" href="/">Verify a document</a>
+      <a class="btn btn-ghost-light" href="/recent">Latest notarisations</a>
+      <a class="btn btn-ghost-light" href="https://www.lkschain.io/developers.html#api">Use the API</a>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container container-narrow">
+
+    <div class="callout" style="margin-bottom:30px">
+      <div class="privacy-note">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+        <div>
+          <h4>What actually gets sent</h4>
+          <p class="mb-0">Your browser computes the SHA-256 of the file and sends <em>only</em> those 64 characters. The document is never uploaded, so we cannot read it, store it, or hand it to anyone. That also means we can never give it back to you — keeping the file is your job.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 1 -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="step-head"><span class="step-num">1</span><h3 style="margin:0">Who is submitting</h3></div>
+
+      <p>You can notarise straight away, without any registration. An API key is optional
+      and does two things: it puts <em>your</em> identifier on every certificate you issue,
+      and it removes the daily limit.</p>
+
+      <p class="muted"><strong>Why there is a limit at all, and why it is not about money.</strong>
+      Submissions are aggregated: a thousand fingerprints in the same ten-minute window travel
+      in a single blockchain transaction, so volume costs the Foundation essentially nothing and
+      the treasury is not the constraint. The cap exists to stop automated abuse from filling the
+      database, nothing more. Verification stays open to everyone, always — a proof only the
+      issuer can check would not be a proof.</p>
+
+      <div class="tabs" role="tablist">
+        <button class="tab is-active" id="tab-anon" role="tab" aria-selected="true">Notarise anonymously</button>
+        <button class="tab" id="tab-key" role="tab" aria-selected="false">Use an API key</button>
+        <button class="tab" id="tab-get" role="tab" aria-selected="false">Get a key by email</button>
+      </div>
+
+      <div class="tabpanel" id="panel-anon">
+        <p class="muted mb-0">Nothing to fill in. Your certificate will record the submitter as
+        <code>anonymous</code>, which is fine when the proof is for you — the document and the
+        certificate together are what you rely on, not our record of who sent it. The daily
+        allowance is per network address.</p>
+      </div>
+
+      <div class="tabpanel" id="panel-key" hidden>
+        <input class="hash-input" type="password" id="apikey" placeholder="Paste your API key" spellcheck="false" autocomplete="off">
+        <div class="keyline">
+          <label class="remember"><input type="checkbox" id="remember"> Keep it for this browser tab</label>
+          <span class="keyid" id="keyid" hidden></span>
+          <button class="linkbtn" id="forget" hidden>Forget this key</button>
+        </div>
+        <div class="keynotes">
+          <div class="keynote"><h4>Where it goes</h4><p>Into the request you are about to send, as an authorisation header, and nowhere else. It is not written into the certificate and never reaches the blockchain.</p></div>
+          <div class="keynote"><h4>How we store it</h4><p>Only its SHA-256 digest, the way a password is stored. Nobody at the Foundation can read your key back — if you lose it, request another.</p></div>
+          <div class="keynote"><h4>If you tick the box</h4><p>The key stays in this browser tab and vanishes when you close it: <code>sessionStorage</code>, deliberately not the permanent kind, so nothing is left behind on a shared machine.</p></div>
+          <div class="keynote"><h4>Treat it like a key</h4><p>Whoever holds it notarises in your name. Do not email it or commit it to a repository. Revoking a key never invalidates certificates already issued with it.</p></div>
+        </div>
+      </div>
+
+      <div class="tabpanel" id="panel-get" hidden>
+        <p class="muted">We email you a confirmation link; the key appears when you open it. The
+        address is kept so that certificates can be attributed — that is the whole point of
+        having one — and it is never shown on a certificate or published.</p>
+        <div class="field">
+          <label for="email">Email address</label>
+          <input class="hash-input" type="email" id="email" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="field">
+          <label for="org">Organisation <span class="muted">— optional, used as the label on your key</span></label>
+          <input class="hash-input" type="text" id="org" placeholder="e.g. Studio Rossi" maxlength="160">
+        </div>
+        <div class="btn-row" style="margin-top:18px">
+          <button class="btn btn-primary btn-sm" id="requestkey">Send me a confirmation link</button>
+        </div>
+        <p class="muted" id="keymsg" style="margin-top:14px;margin-bottom:0"></p>
+      </div>
+
+    <!-- STEP 2 -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="step-head"><span class="step-num">2</span><h3 style="margin:0">The document</h3></div>
+      <label class="drop" id="drop">
+        <input type="file" id="file">
+        <div class="drop-title">Drop your document here, or click to choose one</div>
+        <div class="muted" id="filename">No file selected — nothing is transmitted</div>
+      </label>
+      <div id="hashbox" class="hashbox" hidden>
+        <span class="k">SHA-256</span>
+        <span class="mono" id="hashvalue"></span>
+      </div>
+      <p class="muted" style="margin:18px 0 8px">…or paste a fingerprint you computed yourself, for example with <code>sha256sum</code></p>
+      <input class="hash-input" type="text" id="manualhash" placeholder="64 hexadecimal characters" spellcheck="false">
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="step-head"><span class="step-num">3</span><h3 style="margin:0">Optional details</h3></div>
+      <p class="muted">Metadata is part of what gets certified, so it is stored and shown to <strong>anyone</strong> who looks up the certificate. Use neutral references — a case number, a document type — and never personal or confidential data.</p>
+      <div class="field">
+        <label for="ref">Reference</label>
+        <input class="hash-input" type="text" id="ref" placeholder="e.g. PO-2026-00417" maxlength="120">
+      </div>
+      <div class="field">
+        <label for="kind">Document type</label>
+        <input class="hash-input" type="text" id="kind" placeholder="e.g. supply contract" maxlength="120">
+      </div>
+      <label class="remember"><input type="checkbox" id="withname"> Include the file name in the public metadata</label>
+      <div class="field" style="margin-top:20px">
+        <label for="idem">Idempotency key <span class="muted">— optional, prevents a duplicate proof if you submit twice</span></label>
+        <input class="hash-input" type="text" id="idem" placeholder="left empty, one is derived from the fingerprint" maxlength="120">
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-bottom:6px">
+      <button class="btn btn-primary" id="submit" disabled>Notarise this document</button>
+    </div>
+    <p class="muted" id="hint">Paste your API key and choose a file to continue.</p>
+
+    <div id="out"></div>
+  </div>
+</section>
+
+<section class="section section-tint">
+  <div class="container container-narrow">
+    <div class="section-head">
+      <span class="eyebrow">After you submit</span>
+      <h2>What happens next</h2>
+      <p class="lead">The receipt is immediate; the proof takes a few minutes, and the strongest guarantee a few hours. Nothing further is required from you.</p>
+    </div>
+    <div class="steps">
+      <div class="step"><h4>Immediately — the receipt</h4><p>You get a certificate identifier and a verification link. At this point the fingerprint is queued, not yet on chain, and the certificate says so.</p></div>
+      <div class="step"><h4>Within ten minutes — the blockchain record</h4><p>Your fingerprint is aggregated with others into a Merkle tree and the root is written into a LKSCOIN transaction, confirmed in the following block.</p></div>
+      <div class="step"><h4>Within hours — the Bitcoin anchor</h4><p>The same root is committed to Bitcoin through OpenTimestamps, so the proof no longer depends on the LKSCOIN network, nor on us.</p></div>
+      <div class="step"><h4>Forever — your copy</h4><p>Keep the certificate together with the document. Both are needed: the certificate alone proves a fingerprint existed, the document alone proves nothing.</p></div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="https://www.lkschain.io/index.html" aria-label="LKSCOIN — LKS Foundation">
+          <img class="brand-logo-footer" src="/static/assets/img/lks-foundation-logo-white.png" alt="LKS Foundation" width="680" height="228">
+        </a>
+        <p>A decentralised network for certifying, notarising, verifying and tracing data, documents, content and processes.</p>
+      </div>
+      <div><h4>Services</h4><a href="https://www.lkschain.io/notary.html">LKS Notary</a><a href="/notarize">Notarise a document</a><a href="/">Verify a document</a><a href="/recent">Latest notarisations</a><a href="https://www.lkschain.io/trace.html">LKS Trace</a><a href="https://www.lkschain.io/technology.html#identity">LKS Identity</a><a href="https://www.lkschain.io/developers.html">Service API</a></div>
+      <div><h4>Network</h4><a href="https://www.lkschain.io/network.html">Masternodes</a><a href="https://www.lkschain.io/network.html#downloads">Wallet &amp; Core</a><a href="https://www.lkschain.io/blockchain.html">Block explorer</a><a href="https://www.lkschain.io/technology.html">Security model</a></div>
+      <div><h4>Foundation</h4><a href="https://www.lkschain.io/foundation.html">About</a><a href="https://www.lkschain.io/foundation.html#team">Team</a><a href="https://www.lkschain.io/resources.html">Resources</a><a href="https://www.lkschain.io/roadmap.html">Roadmap</a><a href="https://www.lkschain.io/foundation.html#contact">Contact</a></div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; <span data-year></span> LKS Foundation — Italian non-profit foundation</span>
+      <span><a href="https://www.lkschain.io/legal.html" style="display:inline">Legal &amp; privacy</a> &nbsp;·&nbsp; <a href="https://www.lkschain.io/legal.html#cookies" style="display:inline">Cookies</a></span>
+    </div>
+    <p class="footer-note">Nothing on this site constitutes financial, investment or legal advice, nor an offer to sell or solicit the purchase of any asset. Statements about services under development describe planned functionality and do not represent currently available features. Regulatory references are informational and do not replace a legal opinion.</p>
+  </div>
+</footer>
+
+<script src="/static/assets/js/lks.js"></script>
+<script src="/static/assets/js/easyqrcode.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,"0")).join("");
+const esc = s => String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+async function sha256(d){ return new Uint8Array(await crypto.subtle.digest("SHA-256", d)); }
+const HEX64 = /^[0-9a-fA-F]{64}$/;
+
+let currentHash = null;
+let currentName = null;
+
+/* The key lives in this page only. sessionStorage, when the visitor asks for
+   it, is cleared when the tab closes — deliberately not localStorage, which
+   would survive on a shared machine. */
+const KEY_STORE = "lks-notary-key";
+const savedKey = sessionStorage.getItem(KEY_STORE);
+if (savedKey){ $("apikey").value = savedKey; $("remember").checked = true; }
+
+/* Say which key is loaded. Silently refilling a password field is how you end
+   up sending a revoked key and blaming the server for rejecting it. */
+function showKeyHint(){
+  const value = $("apikey").value.trim();
+  const stored = sessionStorage.getItem(KEY_STORE);
+  const remembered = Boolean(stored) && stored === value;
+  $("keyid").hidden = !remembered;
+  $("forget").hidden = !remembered;
+  if (remembered) $("keyid").textContent = "using the key ending in …" + value.slice(-6);
+}
+$("forget").addEventListener("click", e => {
+  e.preventDefault();
+  sessionStorage.removeItem(KEY_STORE);
+  $("apikey").value = "";
+  $("remember").checked = false;
+  showKeyHint(); refresh();
+});
+
+$("remember").addEventListener("change", e => {
+  if (e.target.checked) sessionStorage.setItem(KEY_STORE, $("apikey").value.trim());
+  else sessionStorage.removeItem(KEY_STORE);
+});
+$("apikey").addEventListener("input", () => {
+  if ($("remember").checked) sessionStorage.setItem(KEY_STORE, $("apikey").value.trim());
+  showKeyHint();
+  refresh();
+});
+
+function refresh(){
+  const ready = currentHash !== null;
+  $("submit").disabled = !ready;
+  $("hint").textContent = ready
+    ? ($("apikey").value.trim()
+        ? "Submitting with your API key — the document itself is not transmitted, only the fingerprint above."
+        : "Submitting anonymously — the document itself is not transmitted, only the fingerprint above.")
+    : "Choose a file or paste a fingerprint to continue.";
+}
+
+/* Tabs: anonymous, existing key, request a key. */
+const TABS = {anon:"panel-anon", key:"panel-key", get:"panel-get"};
+Object.keys(TABS).forEach(name => {
+  $("tab-" + name).addEventListener("click", () => {
+    Object.keys(TABS).forEach(other => {
+      const active = other === name;
+      $("tab-" + other).classList.toggle("is-active", active);
+      $("tab-" + other).setAttribute("aria-selected", String(active));
+      $(TABS[other]).hidden = !active;
+    });
+    if (name !== "key"){ /* leave the field as it is; switching tabs is not a logout */ }
+    refresh();
+  });
+});
+
+$("requestkey").addEventListener("click", async () => {
+  const email = $("email").value.trim();
+  const org = $("org").value.trim();
+  const msg = $("keymsg");
+  if (!email.includes("@")){ msg.textContent = "Enter a valid email address."; return; }
+  $("requestkey").disabled = true;
+  msg.textContent = "Sending…";
+  try{
+    const response = await fetch("/api/v1/request-key", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(org ? {email, organisation: org} : {email})
+    });
+    if (response.status === 429){
+      msg.textContent = "Too many requests from this connection today. Try again tomorrow, or write to the Foundation.";
+      $("requestkey").disabled = false; return;
+    }
+    const data = await response.json();
+    msg.textContent = data.detail || "If that address can receive mail, a confirmation link is on its way.";
+  }catch(err){
+    msg.textContent = "Could not reach the service: " + err.message;
+    $("requestkey").disabled = false;
+  }
+});
+
+function setHash(value, name){
+  currentHash = value ? value.toLowerCase() : null;
+  currentName = name || null;
+  $("hashbox").hidden = !currentHash;
+  $("hashvalue").textContent = currentHash || "";
+  refresh();
+}
+
+const drop = $("drop");
+async function handleFile(file){
+  $("filename").textContent = `${file.name} — ${file.size.toLocaleString("en-US")} bytes, processed on this device`;
+  $("hashvalue").textContent = "computing…";
+  $("hashbox").hidden = false;
+  setHash(hex(await sha256(await file.arrayBuffer())), file.name);
+  $("manualhash").value = "";
+}
+$("file").addEventListener("change", e => e.target.files[0] && handleFile(e.target.files[0]));
+["dragenter","dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave","drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => e.dataTransfer.files[0] && handleFile(e.dataTransfer.files[0]));
+
+$("manualhash").addEventListener("input", e => {
+  const v = e.target.value.trim();
+  if (HEX64.test(v)){ $("filename").textContent = "No file selected — using the fingerprint you pasted"; setHash(v, null); }
+  else setHash(null, null);
+});
+
+function buildMetadata(){
+  const meta = {};
+  const ref = $("ref").value.trim();
+  const kind = $("kind").value.trim();
+  if (ref) meta.reference = ref;
+  if (kind) meta.type = kind;
+  if ($("withname").checked && currentName) meta.filename = currentName;
+  return Object.keys(meta).length ? meta : null;
+}
+
+function receipt(data, meta){
+  const verifyUrl = data.verify_url || (location.origin + "/v/" + data.certificate_id);
+  const cert = {
+    certificate_id: data.certificate_id,
+    document_hash: currentHash,
+    hash_algo: "sha256",
+    received_at: data.received_at,
+    leaf_hash: data.leaf_hash,
+    metadata: meta,
+    verify_url: verifyUrl,
+    network: "LKSCOIN"
+  };
+  const blob = URL.createObjectURL(new Blob([JSON.stringify(cert, null, 2)], {type:"application/json"}));
+  const duplicate = data.created === false;
+
+  return `<div class="card receipt" style="margin-top:28px">
+    <div class="receipt-head">
+      <h3 style="margin:0">${duplicate ? "Already notarised" : "Notarised"}</h3>
+      <span class="verdict ${duplicate ? "v-wait" : "v-ok"}">${duplicate ? "Existing certificate" : "Receipt issued"}</span>
+    </div>
+    ${duplicate ? `<p class="muted">That idempotency key was already used, so no second proof was created and no second fee was paid. This is the original certificate.</p>` : ""}
+    <div class="receipt-grid">
+      <div>
+        <div class="kv"><div class="k">Certificate</div><div class="v mono">${esc(cert.certificate_id)}</div></div>
+        <div class="kv"><div class="k">Document fingerprint</div><div class="v mono">${esc(cert.document_hash)}</div></div>
+        <div class="kv"><div class="k">Recorded at</div><div class="v mono">${esc(cert.received_at)} UTC</div></div>
+        <div class="kv"><div class="k">Status</div><div class="v mono">${esc(data.status)} — the blockchain record follows within minutes</div></div>
+        ${meta ? `<div class="kv"><div class="k">Metadata (public)</div><div class="v mono">${esc(JSON.stringify(meta))}</div></div>` : ""}
+        <div class="kv"><div class="k">Verification link</div><div class="v mono"><a href="${esc(verifyUrl)}">${esc(verifyUrl)}</a></div></div>
+      </div>
+      <div class="qr-col">
+        <div id="qrcode"></div>
+        <span class="muted">Scan to verify</span>
+      </div>
+    </div>
+    <div class="btn-row" style="margin-top:22px">
+      <a class="btn btn-primary btn-sm" href="${esc(verifyUrl)}">Open the certificate</a>
+      <a class="btn btn-outline btn-sm" href="${blob}" download="lks-notary-${esc(cert.certificate_id)}.json">Download certificate (JSON)</a>
+    </div>
+    <p class="muted" style="margin-top:18px;margin-bottom:0"><strong>Save this now.</strong> We hold no copy of your document, so the certificate and the file together are the proof. Neither is any use without the other.</p>
+  </div>`;
+}
+
+$("submit").addEventListener("click", async () => {
+  const key = $("apikey").value.trim();
+  if (!currentHash) return;
+  $("submit").disabled = true;
+  $("out").innerHTML = '<div class="card muted" style="margin-top:28px">Submitting the fingerprint…</div>';
+
+  const meta = buildMetadata();
+  const headers = {"Content-Type":"application/json"};
+  if (key) headers["X-API-Key"] = key;
+  const idem = $("idem").value.trim();
+  if (idem) headers["Idempotency-Key"] = idem;
+
+  try{
+    const response = await fetch("/api/v1/notarize", {
+      method: "POST", headers,
+      body: JSON.stringify(meta ? {hash: currentHash, metadata: meta} : {hash: currentHash})
+    });
+    if (response.status === 401){
+      $("out").innerHTML = '<div class="card" style="margin-top:28px"><h3>Key rejected</h3>'
+        + '<p class="mb-0 muted">That API key is mistyped or no longer active. Correct it, request a new one, '
+        + 'or clear the field and submit anonymously.</p></div>';
+      $("submit").disabled = false; return;
+    }
+    if (response.status === 429){
+      const info = await response.json().catch(() => ({}));
+      $("out").innerHTML = '<div class="card" style="margin-top:28px"><h3>Daily limit reached</h3>'
+        + '<p class="mb-0 muted">' + esc(info.detail || "Anonymous submissions are capped per day.")
+        + ' Nothing was recorded and no fee was spent.</p></div>';
+      $("submit").disabled = false; return;
+    }
+    if (response.status === 422){
+      $("out").innerHTML = '<div class="card" style="margin-top:28px"><h3>Invalid fingerprint</h3>'
+        + '<p class="mb-0 muted">The hash must be 64 hexadecimal characters (SHA-256).</p></div>';
+      $("submit").disabled = false; return;
+    }
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    const data = await response.json();
+    $("out").innerHTML = receipt(data, meta);
+    new QRCode($("qrcode"), {
+      text: data.verify_url || (location.origin + "/v/" + data.certificate_id),
+      width: 132, height: 132, colorDark: "#175DAB", colorLight: "#ffffff"
+    });
+    $("out").scrollIntoView({behavior:"smooth", block:"nearest"});
+  }catch(err){
+    $("out").innerHTML = '<div class="card" style="margin-top:28px"><h3>Submission failed</h3>'
+      + `<p class="mb-0 muted">${esc(err.message)} — nothing was recorded. Your fingerprint is still shown above, so you can retry without re-reading the file.</p></div>`;
+    $("submit").disabled = false;
+  }
+});
+
+showKeyHint();
+refresh();
+</script>
+</body>
+</html>

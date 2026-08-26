@@ -1,0 +1,15 @@
+# Normalise line endings on commit and check out LF everywhere.
+#
+# The service is edited on Windows and runs on Linux. Without this, CRLF creeps
+# into the repository and breaks things in ways that are tedious to diagnose:
+# systemd unit files fail to parse, shebangs stop working, and shell scripts
+# report "bad interpreter".
+* text=auto eol=lf
+
+# Binary assets must never be touched.
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary

@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verify a document — LKS Notary | LKSCOIN</title>
+<meta name="description" content="Check a document against the LKS Notary proofs recorded on the LKSCOIN blockchain and anchored to Bitcoin. The file never leaves your device: the fingerprint is computed in your browser.">
+<link rel="canonical" href="https://notary.lkschain.io/">
+<meta name="theme-color" content="#175DAB">
+<meta name="robots" content="index,follow">
+<link rel="icon" href="/static/assets/img/favicon.ico" sizes="any">
+<link rel="icon" href="/static/assets/img/favicon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="/static/assets/img/apple-touch-icon.png">
+<link rel="stylesheet" href="/static/assets/css/lks.css">
+<style>
+  /* Page-specific only. Everything else comes from the site design system. */
+  .drop{display:block;border:2px dashed var(--lks-blue-light);border-radius:var(--radius);
+        padding:52px 24px;text-align:center;cursor:pointer;background:var(--surface);
+        transition:border-color .18s var(--ease),background .18s var(--ease)}
+  .drop:hover,.drop.over{border-color:var(--lks-cyan);background:var(--surface-2)}
+  .drop input{display:none}
+  .drop .drop-title{font-weight:700;color:var(--ink);font-size:1.12rem;margin-bottom:.35em}
+  .hash-input{width:100%;padding:14px 16px;border:1px solid var(--line);border-radius:var(--radius-sm);
+        font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86rem;color:var(--ink-soft);background:#fff}
+  .hash-input:focus{outline:none;border-color:var(--lks-blue-light);box-shadow:0 0 0 3px rgba(46,134,214,.14)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.8rem;word-break:break-all}
+  .kv{display:flex;gap:18px;padding:13px 0;border-bottom:1px solid var(--line)}
+  .kv:last-child{border-bottom:none}
+  .kv .k{flex:0 0 220px;color:var(--muted);font-weight:600;font-size:.92rem}
+  .kv .v{flex:1;min-width:0}
+  .verdict{display:inline-flex;align-items:center;gap:9px;padding:7px 16px;border-radius:999px;
+        font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .v-ok{background:rgba(30,158,106,.12);color:var(--ok);border:1px solid rgba(30,158,106,.3)}
+  .v-wait{background:rgba(192,138,30,.12);color:var(--warn);border:1px solid rgba(192,138,30,.3)}
+  .v-bad{background:rgba(190,52,42,.10);color:#BE342A;border:1px solid rgba(190,52,42,.28)}
+  .chk{display:flex;align-items:flex-start;gap:13px;padding:11px 0}
+  .chk svg{flex:0 0 22px;height:22px;margin-top:1px}
+  .chk .lbl{font-weight:600;color:var(--ink)}
+  .chk .det{color:var(--muted);font-size:.82rem}
+  .privacy-note{display:flex;gap:18px;align-items:flex-start}
+  .privacy-note svg{flex:0 0 30px;height:30px;stroke:var(--ok);fill:none;stroke-width:1.6;
+        stroke-linecap:round;stroke-linejoin:round;margin-top:2px}
+  .ext{margin-left:6px;vertical-align:-1px}
+  @media(max-width:700px){.kv{flex-direction:column;gap:2px}.kv .k{flex:none}}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <nav class="nav" aria-label="Main">
+      <a class="brand" href="https://www.lkschain.io/index.html" aria-label="LKSCOIN — LKS Foundation">
+        <img class="brand-logo" src="/static/assets/img/lks-foundation-logo.png" alt="LKS Foundation" width="680" height="228">
+      </a>
+      <button class="nav-toggle" aria-label="Open menu" aria-expanded="false"><span></span><span></span><span></span></button>
+      <ul class="nav-links">
+        <li><a href="https://www.lkschain.io/notary.html">Notary</a></li>
+        <li><a href="https://www.lkschain.io/trace.html">Trace</a></li>
+        <li><a href="https://www.lkschain.io/technology.html">Technology</a></li>
+        <li><a href="https://www.lkschain.io/developers.html">Developers</a></li>
+        <li><a href="https://www.lkschain.io/network.html">Network</a></li>
+        <li><a href="https://www.lkschain.io/roadmap.html">Roadmap</a></li>
+        <li><a href="https://www.lkschain.io/foundation.html">Foundation</a></li>
+        <li><a href="https://www.lkschain.io/resources.html">Resources</a></li>
+        <li><a class="nav-explorer" href="https://www.lkschain.io/blockchain.html">Explorer</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<section class="hero hero-sub hero-photo">
+  <img class="hero-bg" src="/static/assets/img/hero/chain.jpg" alt="" width="1920" height="872" fetchpriority="high" decoding="async">
+  <div class="hero-mesh"></div>
+  <div class="container">
+    <span class="eyebrow" style="color:#6FD8EC">LKS Notary</span>
+    <h1>Verify a document</h1>
+    <p class="hero-lead">Drop a file to check whether its proof was recorded on the LKSCOIN blockchain, and when. The file is never uploaded — the fingerprint is computed inside your browser, and the checks below are recomputed there too.</p>
+    <div class="btn-row">
+      <a class="btn btn-light" href="/notarize">Notarise a document</a>
+      <a class="btn btn-ghost-light" href="/recent">Latest notarisations</a>
+      <a class="btn btn-ghost-light" href="https://www.lkschain.io/notary.html">How it works</a>
+    </div>
+  </div>
+</section>
+
+<!-- VERIFY -->
+<section class="section">
+  <div class="container container-narrow">
+
+    <div class="callout" style="margin-bottom:28px">
+      <div class="privacy-note">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+        <div>
+          <h4>Your document never leaves this device</h4>
+          <p class="mb-0">The SHA-256 fingerprint is computed locally. All the server receives is 64 hexadecimal characters, from which the content cannot be reconstructed. Open your browser's developer tools, go to the <em>Network</em> tab and drop a file: you will see no upload.</p>
+        </div>
+      </div>
+    </div>
+
+    <label class="drop" id="drop">
+      <input type="file" id="file">
+      <div class="drop-title">Drop your document here, or click to choose one</div>
+      <div class="muted" id="filename">No file selected — nothing is transmitted</div>
+    </label>
+
+    <p class="muted" style="margin:22px 0 8px">…or paste a SHA-256 fingerprint or a certificate ID and press Enter</p>
+    <input class="hash-input" type="text" id="manual" placeholder="6258a5e0…    or    99e32d42-97f1-437e-…" spellcheck="false">
+
+    <div id="out"></div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section section-tint">
+  <div class="container">
+    <div class="section-head center">
+      <span class="eyebrow">How it works</span>
+      <h2>From your file to two independent blockchains</h2>
+      <p class="lead">One record on LKSCOIN certifies thousands of documents; the same root is committed to Bitcoin, so the proof does not depend on this service.</p>
+    </div>
+
+    <div class="card card-flat" style="padding:26px 18px;margin-bottom:34px">
+      <svg viewBox="0 0 900 152" width="100%" role="img" aria-label="Document, fingerprint, Merkle tree, LKSCOIN transaction, Bitcoin anchor" style="max-width:100%;display:block">
+        <defs>
+          <linearGradient id="gline" x1="0" y1="0" x2="900" y2="0">
+            <stop offset="0" stop-color="#175DAB"/><stop offset="1" stop-color="#12B5D8"/></linearGradient>
+          <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M0 0 L9 4.5 L0 9 z" fill="#2E86D6"/></marker>
+        </defs>
+        <line x1="95" y1="62" x2="185" y2="62" stroke="url(#gline)" stroke-width="2" marker-end="url(#arrow)"/>
+        <line x1="305" y1="62" x2="395" y2="62" stroke="url(#gline)" stroke-width="2" marker-end="url(#arrow)"/>
+        <line x1="515" y1="62" x2="605" y2="62" stroke="url(#gline)" stroke-width="2" marker-end="url(#arrow)"/>
+        <line x1="725" y1="62" x2="800" y2="62" stroke="url(#gline)" stroke-width="2" marker-end="url(#arrow)"/>
+
+        <g fill="none" stroke="#61758C" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M25 42h30l10 10v36a4 4 0 0 1-4 4H29a4 4 0 0 1-4-4V46a4 4 0 0 1 4-4z"/><path d="M40 42v12h12"/>
+        </g>
+        <text x="45" y="120" fill="#0C1C2E" font-size="13.5" text-anchor="middle" font-family="'Titillium Web',sans-serif" font-weight="700">Document</text>
+        <text x="45" y="137" fill="#61758C" font-size="12" text-anchor="middle" font-family="'Titillium Web',sans-serif">stays with you</text>
+
+        <rect x="200" y="40" width="90" height="46" rx="9" fill="#EAF2FA" stroke="#175DAB" stroke-width="1.3"/>
+        <text x="245" y="69" fill="#175DAB" font-size="13" text-anchor="middle" font-family="monospace">SHA-256</text>
+        <text x="245" y="120" fill="#0C1C2E" font-size="13.5" text-anchor="middle" font-family="'Titillium Web',sans-serif" font-weight="700">Fingerprint</text>
+        <text x="245" y="137" fill="#61758C" font-size="12" text-anchor="middle" font-family="'Titillium Web',sans-serif">computed in your browser</text>
+
+        <g stroke="#12B5D8" stroke-width="1.6" fill="#fff">
+          <circle cx="455" cy="32" r="6.5"/><circle cx="428" cy="64" r="6.5"/><circle cx="482" cy="64" r="6.5"/>
+          <circle cx="414" cy="93" r="5.5"/><circle cx="442" cy="93" r="5.5"/><circle cx="468" cy="93" r="5.5"/><circle cx="496" cy="93" r="5.5"/>
+        </g>
+        <g stroke="#12B5D8" stroke-width="1.4" fill="none">
+          <path d="M450 37l-18 21M460 37l18 21M424 70l-8 17M432 70l8 17M478 70l-8 17M486 70l8 17"/>
+        </g>
+        <text x="455" y="128" fill="#0C1C2E" font-size="13.5" text-anchor="middle" font-family="'Titillium Web',sans-serif" font-weight="700">Merkle tree</text>
+
+        <rect x="610" y="34" width="110" height="58" rx="9" fill="#EAF2FA" stroke="#2E86D6" stroke-width="1.3"/>
+        <text x="665" y="58" fill="#175DAB" font-size="12.5" text-anchor="middle" font-family="monospace">OP_RETURN</text>
+        <text x="665" y="77" fill="#175DAB" font-size="12.5" text-anchor="middle" font-family="monospace">LKSN · 38 B</text>
+        <text x="665" y="120" fill="#0C1C2E" font-size="13.5" text-anchor="middle" font-family="'Titillium Web',sans-serif" font-weight="700">LKSCOIN blockchain</text>
+
+        <g transform="translate(825,44)">
+          <circle cx="18" cy="18" r="18" fill="#FBF3E2" stroke="#C08A1E" stroke-width="1.3"/>
+          <text x="18" y="25" fill="#C08A1E" font-size="19" text-anchor="middle" font-family="'Titillium Web',sans-serif" font-weight="700">B</text>
+        </g>
+        <text x="843" y="120" fill="#0C1C2E" font-size="13.5" text-anchor="middle" font-family="'Titillium Web',sans-serif" font-weight="700">Anchored</text>
+        <text x="843" y="137" fill="#61758C" font-size="12" text-anchor="middle" font-family="'Titillium Web',sans-serif">to Bitcoin</text>
+      </svg>
+    </div>
+
+    <div class="steps">
+      <div class="step"><h4>The fingerprint</h4><p>Your device computes the SHA-256 digest of the file: 64 characters that change completely if a single byte of the document is altered.</p></div>
+      <div class="step"><h4>Aggregation</h4><p>Incoming digests are combined into a Merkle tree. One blockchain record certifies thousands of documents, which keeps the cost negligible.</p></div>
+      <div class="step"><h4>The record</h4><p>The root of the tree is written into a LKSCOIN transaction as an unspendable output carrying 38 bytes of data. From that moment it is public and immutable.</p></div>
+      <div class="step"><h4>The anchor</h4><p>The same root is committed to Bitcoin through OpenTimestamps, so the proof outlives both this service and the LKSCOIN network.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section">
+  <div class="container container-narrow">
+    <div class="section-head">
+      <span class="eyebrow">Questions</span>
+      <h2>What this proves — and what it does not</h2>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <h3>What happens to the document I upload?</h3>
+      <p class="mb-0">You do not upload it. The file is read by your browser on your own device, its fingerprint is computed locally, and only that fingerprint reaches the server. No copy of your document exists in our systems and none can be reconstructed. The flip side: keeping the file is your responsibility. If you lose it, the certificate still proves that <em>something</em> with that fingerprint existed on that date, but it cannot tell you what.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <h3>What exactly does a certificate prove?</h3>
+      <p>That this exact sequence of bytes already existed when it was recorded on the blockchain. It is a proof of anteriority and of integrity: change one character of the file and the fingerprint no longer matches. It does not prove who authored the document, nor that its contents are true.</p>
+      <p class="mb-0 muted"><strong>Legal positioning.</strong> This is a simple electronic time stamp within the meaning of eIDAS — admissible evidence whose legal effect is assessed by the court — not a qualified time stamp, which only a qualified trust service provider on the EU Trusted List can issue. See <a href="https://www.lkschain.io/notary.html#legal">the legal positioning</a>.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <h3>Is the metadata I attach public?</h3>
+      <p class="mb-0">Yes. The optional metadata field is stored and returned to anyone who looks up the certificate, because it is part of what gets certified. Use it for neutral references — a case number, a document type — and never for personal or confidential data. The fingerprint itself reveals nothing.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <h3>Do I have to trust you?</h3>
+      <p class="mb-0">No, and that is the point. This page does not display the server's verdict: it recomputes the fingerprint, the Merkle leaf and the Merkle root in your browser, so a tampered record would fail in front of you. You can also repeat every check independently with the open <code>lks-verify</code> tool against any LKSCOIN node you choose — see <a href="https://www.lkschain.io/developers.html#verifier">the independent verifier</a>.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <h3>What if this service shuts down?</h3>
+      <p class="mb-0">The proofs remain. They are written on the LKSCOIN blockchain and attested on Bitcoin, both independent of us. The record format is public and every transaction carries the <code>LKSN</code> prefix, so anyone can scan the chain and find them without going through this site. Keep the certificate together with the document.</p>
+    </div>
+
+    <div class="card">
+      <h3>How long until the proof is final?</h3>
+      <p class="mb-0">Three levels, on different timescales. The record reaches the LKSCOIN blockchain within minutes and is confirmed in the following block. Quorum finality through ChainLocks applies once quorums are active on the network. The Bitcoin attestation — the guarantee that does not depend on LKSCOIN at all — completes within a few hours. The certificate always shows which stage has been reached.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="https://www.lkschain.io/index.html" aria-label="LKSCOIN — LKS Foundation">
+          <img class="brand-logo-footer" src="/static/assets/img/lks-foundation-logo-white.png" alt="LKS Foundation" width="680" height="228">
+        </a>
+        <p>A decentralised network for certifying, notarising, verifying and tracing data, documents, content and processes.</p>
+      </div>
+      <div><h4>Services</h4><a href="https://www.lkschain.io/notary.html">LKS Notary</a><a href="/notarize">Notarise a document</a><a href="/">Verify a document</a><a href="/recent">Latest notarisations</a><a href="https://www.lkschain.io/trace.html">LKS Trace</a><a href="https://www.lkschain.io/technology.html#identity">LKS Identity</a><a href="https://www.lkschain.io/developers.html">Service API</a></div>
+      <div><h4>Network</h4><a href="https://www.lkschain.io/network.html">Masternodes</a><a href="https://www.lkschain.io/network.html#downloads">Wallet &amp; Core</a><a href="https://www.lkschain.io/blockchain.html">Block explorer</a><a href="https://www.lkschain.io/technology.html">Security model</a></div>
+      <div><h4>Foundation</h4><a href="https://www.lkschain.io/foundation.html">About</a><a href="https://www.lkschain.io/foundation.html#team">Team</a><a href="https://www.lkschain.io/resources.html">Resources</a><a href="https://www.lkschain.io/roadmap.html">Roadmap</a><a href="https://www.lkschain.io/foundation.html#contact">Contact</a></div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; <span data-year></span> LKS Foundation — Italian non-profit foundation</span>
+      <span><a href="https://www.lkschain.io/legal.html" style="display:inline">Legal &amp; privacy</a> &nbsp;·&nbsp; <a href="https://www.lkschain.io/legal.html#cookies" style="display:inline">Cookies</a></span>
+    </div>
+    <p class="footer-note">Nothing on this site constitutes financial, investment or legal advice, nor an offer to sell or solicit the purchase of any asset. Statements about services under development describe planned functionality and do not represent currently available features. Regulatory references are informational and do not replace a legal opinion.</p>
+  </div>
+</footer>
+
+<script src="/static/assets/js/lks.js"></script>
+<script>
+/* LKSCOIN explorer links. {id} is the transaction hash or the block number. */
+const EXPLORER = {
+  tx:    "https://www.lkschain.io/transactions.html?hash={id}",
+  block: "https://www.lkschain.io/blocks.html?blocknum={id}"
+};
+
+const out = document.getElementById("out");
+const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,"0")).join("");
+const bytes = h => new Uint8Array(h.match(/../g).map(b => parseInt(b,16)));
+const esc = s => String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const kv = (k,v) => `<div class="kv"><div class="k">${esc(k)}</div><div class="v mono">${v}</div></div>`;
+async function sha256(d){ return new Uint8Array(await crypto.subtle.digest("SHA-256", d)); }
+function concat(a,b){ const r = new Uint8Array(a.length+b.length); r.set(a); r.set(b,a.length); return r; }
+
+const EXT = '<svg class="ext" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor"'
+  + ' stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+  + '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>';
+
+function explorerLink(kind, id, label){
+  const tpl = EXPLORER[kind];
+  if (!tpl || id === null || id === undefined || id === "") return esc(label || "");
+  return `<a href="${tpl.replace("{id}", encodeURIComponent(id))}" target="_blank" rel="noopener">${esc(label || id)}${EXT}</a>`;
+}
+
+/* Verification runs here, in the browser. The server supplies the proof data;
+   the leaf and the root are recomputed locally, so a tampered record fails. */
+async function recomputeLeaf(record){ return hex(await sha256(new TextEncoder().encode(record))); }
+async function recomputeRoot(leafHex, path){
+  let running = bytes(leafHex);
+  for (const step of path){
+    const sib = bytes(step.hash);
+    running = await sha256(step.position === "left" ? concat(sib,running) : concat(running,sib));
+  }
+  return hex(running);
+}
+
+const I_OK   = '<svg viewBox="0 0 24 24" fill="none" stroke="#1E9E6A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.5 2.5L16 9"/></svg>';
+const I_BAD  = '<svg viewBox="0 0 24 24" fill="none" stroke="#BE342A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>';
+const I_WAIT = '<svg viewBox="0 0 24 24" fill="none" stroke="#C08A1E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 7v5l3 2"/></svg>';
+
+function chk(state,label,detail){
+  const icon = state === true ? I_OK : state === null ? I_WAIT : I_BAD;
+  return `<div class="chk">${icon}<div><div class="lbl">${esc(label)}</div>
+          ${detail ? `<div class="det mono">${esc(detail)}</div>` : ""}</div></div>`;
+}
+
+async function render(cert, expectedHash){
+  const checks = []; let verdict = "ok";
+
+  if (expectedHash){
+    const same = cert.document_hash === expectedHash;
+    checks.push(chk(same, same ? "The file matches this certificate"
+                               : "The file does NOT match this certificate", cert.document_hash));
+    if (!same) verdict = "bad";
+  }
+
+  const leaf = await recomputeLeaf(cert.canonical_record);
+  const leafOk = leaf === cert.leaf_hash;
+  checks.push(chk(leafOk, "Record fingerprint recomputed in your browser", leaf));
+  if (!leafOk) verdict = "bad";
+
+  if (cert.merkle){
+    const r = await recomputeRoot(cert.leaf_hash, cert.merkle.path);
+    const rootOk = r === cert.merkle.root;
+    checks.push(chk(rootOk, `Merkle root recomputed from ${cert.merkle.path.length} proof steps`, r));
+    if (!rootOk) verdict = "bad";
+  } else {
+    checks.push(chk(null, "Waiting for the next blockchain record"));
+    if (verdict === "ok") verdict = "pending";
+  }
+
+  const chain = cert.chain;
+  if (chain && chain.block_hash){
+    checks.push(chk(true, `Recorded on the LKSCOIN blockchain, block ${chain.block_height}`,
+                    `${chain.confirmations} confirmations`));
+    if (chain.chainlocked) checks.push(chk(true, "Block signed by a masternode quorum (ChainLock)"));
+  } else if (chain && chain.txid){
+    checks.push(chk(null, "Transaction broadcast, awaiting confirmation"));
+    if (verdict === "ok") verdict = "pending";
+  }
+
+  if (cert.bitcoin){
+    checks.push(chk(cert.bitcoin.anchored ? true : null,
+      cert.bitcoin.anchored ? "Bitcoin attestation complete"
+                            : "Bitcoin attestation in progress — completes within a few hours"));
+  }
+
+  const badge = verdict === "ok"      ? '<span class="verdict v-ok">Verified</span>'
+              : verdict === "pending" ? '<span class="verdict v-wait">In progress</span>'
+              : '<span class="verdict v-bad">Not valid</span>';
+
+  return `<div class="card" style="margin-top:26px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:8px">
+        <h3 style="margin:0">Verification result</h3>${badge}</div>
+      ${checks.join("")}
+    </div>
+    <div class="card" style="margin-top:16px">
+      ${kv("Certificate", esc(cert.certificate_id))}
+      ${kv("Document fingerprint", esc(cert.document_hash))}
+      ${kv("Recorded at", esc(cert.received_at) + " UTC")}
+      ${cert.metadata ? kv("Metadata (public)", esc(JSON.stringify(cert.metadata))) : ""}
+      ${cert.merkle ? kv("Merkle root", esc(cert.merkle.root)) : ""}
+      ${chain && chain.txid ? kv("LKSCOIN transaction", explorerLink("tx", chain.txid)) : ""}
+      ${chain && chain.block_height !== null && chain.block_height !== undefined
+        ? kv("Block", explorerLink("block", chain.block_height, "#" + chain.block_height)) : ""}
+      ${cert.bitcoin && cert.bitcoin.ots_url
+        ? kv("OpenTimestamps proof", `<a href="${cert.bitcoin.ots_url}">download the .ots file</a>`) : ""}
+      ${kv("Certified record", esc(cert.canonical_record))}
+    </div>`;
+}
+
+async function show(hashHex, certId){
+  out.innerHTML = '<div class="card muted" style="margin-top:26px">Verifying…</div>';
+  try{
+    const url = certId ? `/api/v1/verify/${encodeURIComponent(certId)}` : `/api/v1/lookup/${hashHex}`;
+    const response = await fetch(url);
+    if (response.status === 404){
+      out.innerHTML = `<div class="card" style="margin-top:26px">${chk(false,"No proof found",
+        "This document is not recorded. If it was edited after being notarised, even by a single byte, the fingerprint no longer matches.")}</div>`;
+      return;
+    }
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    const data = await response.json();
+    const certs = certId ? [data] : data.certificates;
+    if (!certs.length){
+      out.innerHTML = `<div class="card" style="margin-top:26px">${chk(false,"No proof found for this document", hashHex)}</div>`;
+      return;
+    }
+    const blocks = [];
+    for (const c of certs) blocks.push(await render(c, certId ? null : hashHex));
+    out.innerHTML = blocks.join("");
+  }catch(err){
+    out.innerHTML = `<div class="card" style="margin-top:26px">${chk(false,"Verification failed", err.message)}</div>`;
+  }
+}
+
+const drop = document.getElementById("drop");
+async function handleFile(file){
+  document.getElementById("filename").textContent =
+    `${file.name} — ${file.size.toLocaleString("en-US")} bytes, processed on this device`;
+  out.innerHTML = '<div class="card muted" style="margin-top:26px">Computing the fingerprint locally…</div>';
+  show(hex(await sha256(await file.arrayBuffer())), null);
+}
+document.getElementById("file").addEventListener("change", e => e.target.files[0] && handleFile(e.target.files[0]));
+["dragenter","dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave","drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => e.dataTransfer.files[0] && handleFile(e.dataTransfer.files[0]));
+/* /v/<certificate-id> — the short URL printed on certificates and encoded in
+   QR codes. Verify it straight away instead of making the visitor paste it. */
+(function fromPath(){
+  const m = location.pathname.match(/^\/v\/([^/]+)\/?$/);
+  if (!m) return;
+  const id = decodeURIComponent(m[1]);
+  document.getElementById("manual").value = id;
+  show(null, id);
+})();
+
+document.getElementById("manual").addEventListener("keydown", e => {
+  if (e.key !== "Enter") return;
+  const v = e.target.value.trim();
+  if (/^[0-9a-fA-F]{64}$/.test(v)) show(v.toLowerCase(), null);
+  else if (v) show(null, v);
+});
+</script>
+</body>
+</html>

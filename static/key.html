@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your API key — LKS Notary | LKSCOIN</title>
+<meta name="description" content="Record a proof that your document exists on the LKSCOIN blockchain, anchored to Bitcoin. The file never leaves your device: only its SHA-256 fingerprint is transmitted.">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#175DAB">
+<meta name="robots" content="index,follow">
+<link rel="icon" href="/static/assets/img/favicon.ico" sizes="any">
+<link rel="icon" href="/static/assets/img/favicon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="/static/assets/img/apple-touch-icon.png">
+<link rel="stylesheet" href="/static/assets/css/lks.css">
+<style>
+  /* Page-specific only. Everything else comes from the site design system. */
+  .drop{display:block;border:2px dashed var(--lks-blue-light);border-radius:var(--radius);
+        padding:52px 24px;text-align:center;cursor:pointer;background:var(--surface);
+        transition:border-color .18s var(--ease),background .18s var(--ease)}
+  .drop:hover,.drop.over{border-color:var(--lks-cyan);background:var(--surface-2)}
+  .drop input{display:none}
+  .drop .drop-title{font-weight:700;color:var(--ink);font-size:1.12rem;margin-bottom:.35em}
+  .hash-input{width:100%;padding:14px 16px;border:1px solid var(--line);border-radius:var(--radius-sm);
+        font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86rem;color:var(--ink-soft);background:#fff}
+  .hash-input:focus{outline:none;border-color:var(--lks-blue-light);box-shadow:0 0 0 3px rgba(46,134,214,.14)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.8rem;word-break:break-all}
+  .kv{display:flex;gap:18px;padding:13px 0;border-bottom:1px solid var(--line)}
+  .kv:last-child{border-bottom:none}
+  .kv .k{flex:0 0 220px;color:var(--muted);font-weight:600;font-size:.92rem}
+  .kv .v{flex:1;min-width:0}
+  .verdict{display:inline-flex;align-items:center;gap:9px;padding:7px 16px;border-radius:999px;
+        font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .v-ok{background:rgba(30,158,106,.12);color:var(--ok);border:1px solid rgba(30,158,106,.3)}
+  .v-wait{background:rgba(192,138,30,.12);color:var(--warn);border:1px solid rgba(192,138,30,.3)}
+  .v-bad{background:rgba(190,52,42,.10);color:#BE342A;border:1px solid rgba(190,52,42,.28)}
+  .chk{display:flex;align-items:flex-start;gap:13px;padding:11px 0}
+  .chk svg{flex:0 0 22px;height:22px;margin-top:1px}
+  .chk .lbl{font-weight:600;color:var(--ink)}
+  .chk .det{color:var(--muted);font-size:.82rem}
+  .privacy-note{display:flex;gap:18px;align-items:flex-start}
+  .privacy-note svg{flex:0 0 30px;height:30px;stroke:var(--ok);fill:none;stroke-width:1.6;
+        stroke-linecap:round;stroke-linejoin:round;margin-top:2px}
+  .ext{margin-left:6px;vertical-align:-1px}
+  .step-head{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+  .step-num{flex:0 0 34px;width:34px;height:34px;border-radius:50%;background:var(--lks-blue);color:#fff;
+        display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.95rem}
+  .field{margin-top:16px}
+  .field label{display:block;font-weight:600;color:var(--ink);font-size:.92rem;margin-bottom:6px}
+  .remember{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:.9rem;color:var(--muted);cursor:pointer}
+  .remember input{width:16px;height:16px;accent-color:var(--lks-blue)}
+  .hashbox{display:flex;align-items:baseline;gap:14px;margin-top:18px;padding:14px 16px;
+        background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm)}
+  .hashbox .k{color:var(--muted);font-weight:600;font-size:.82rem;flex:0 0 auto}
+  .receipt-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:12px}
+  .receipt-grid{display:flex;gap:30px;align-items:flex-start;flex-wrap:wrap}
+  .receipt-grid > div:first-child{flex:1 1 340px;min-width:0}
+  .qr-col{flex:0 0 auto;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px}
+  .qr-col .muted{font-size:.78rem}
+  .keynotes{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin-top:22px}
+  .keynote{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);padding:16px 18px}
+  .keynote h4{margin:0 0 6px;font-size:.95rem;color:var(--ink)}
+  .keynote p{margin:0;font-size:.88rem;color:var(--muted)}
+  button.btn{font:inherit;cursor:pointer;border:none}
+  button.btn:disabled{opacity:.45;cursor:not-allowed}
+  @media(max-width:700px){.kv{flex-direction:column;gap:2px}.kv .k{flex:none}}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <nav class="nav" aria-label="Main">
+      <a class="brand" href="https://www.lkschain.io/index.html" aria-label="LKSCOIN — LKS Foundation">
+        <img class="brand-logo" src="/static/assets/img/lks-foundation-logo.png" alt="LKS Foundation" width="680" height="228">
+      </a>
+      <button class="nav-toggle" aria-label="Open menu" aria-expanded="false"><span></span><span></span><span></span></button>
+      <ul class="nav-links">
+        <li><a href="https://www.lkschain.io/notary.html">Notary</a></li>
+        <li><a href="https://www.lkschain.io/trace.html">Trace</a></li>
+        <li><a href="https://www.lkschain.io/technology.html">Technology</a></li>
+        <li><a href="https://www.lkschain.io/developers.html">Developers</a></li>
+        <li><a href="https://www.lkschain.io/network.html">Network</a></li>
+        <li><a href="https://www.lkschain.io/roadmap.html">Roadmap</a></li>
+        <li><a href="https://www.lkschain.io/foundation.html">Foundation</a></li>
+        <li><a href="https://www.lkschain.io/resources.html">Resources</a></li>
+        <li><a class="nav-explorer" href="https://www.lkschain.io/blockchain.html">Explorer</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<section class="hero hero-sub hero-photo">
+  <img class="hero-bg" src="/static/assets/img/hero/chain-alt.jpg" alt="" width="1920" height="872" decoding="async">
+  <div class="hero-mesh"></div>
+  <div class="container">
+    <span class="eyebrow" style="color:#6FD8EC">LKS Notary</span>
+    <h1>Your API key</h1>
+    <p class="hero-lead">This link works once. The key is shown below and nowhere else — we store only its digest, so nobody, ourselves included, can read it back to you.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container container-narrow">
+    <div id="out"><div class="card muted">Redeeming your confirmation link…</div></div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="https://www.lkschain.io/index.html" aria-label="LKSCOIN — LKS Foundation">
+          <img class="brand-logo-footer" src="/static/assets/img/lks-foundation-logo-white.png" alt="LKS Foundation" width="680" height="228">
+        </a>
+        <p>A decentralised network for certifying, notarising, verifying and tracing data, documents, content and processes.</p>
+      </div>
+      <div><h4>Services</h4><a href="https://www.lkschain.io/notary.html">LKS Notary</a><a href="/notarize">Notarise a document</a><a href="/">Verify a document</a><a href="/recent">Latest notarisations</a><a href="https://www.lkschain.io/trace.html">LKS Trace</a><a href="https://www.lkschain.io/technology.html#identity">LKS Identity</a><a href="https://www.lkschain.io/developers.html">Service API</a></div>
+      <div><h4>Network</h4><a href="https://www.lkschain.io/network.html">Masternodes</a><a href="https://www.lkschain.io/network.html#downloads">Wallet &amp; Core</a><a href="https://www.lkschain.io/blockchain.html">Block explorer</a><a href="https://www.lkschain.io/technology.html">Security model</a></div>
+      <div><h4>Foundation</h4><a href="https://www.lkschain.io/foundation.html">About</a><a href="https://www.lkschain.io/foundation.html#team">Team</a><a href="https://www.lkschain.io/resources.html">Resources</a><a href="https://www.lkschain.io/roadmap.html">Roadmap</a><a href="https://www.lkschain.io/foundation.html#contact">Contact</a></div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; <span data-year></span> LKS Foundation — Italian non-profit foundation</span>
+      <span><a href="https://www.lkschain.io/legal.html" style="display:inline">Legal &amp; privacy</a> &nbsp;·&nbsp; <a href="https://www.lkschain.io/legal.html#cookies" style="display:inline">Cookies</a></span>
+    </div>
+    <p class="footer-note">Nothing on this site constitutes financial, investment or legal advice, nor an offer to sell or solicit the purchase of any asset. Statements about services under development describe planned functionality and do not represent currently available features. Regulatory references are informational and do not replace a legal opinion.</p>
+  </div>
+</footer>
+
+<script src="/static/assets/js/lks.js"></script>
+<script>
+const esc = s => String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const out = document.getElementById("out");
+
+(async function redeem(){
+  const m = location.pathname.match(/^\/k\/(.+?)\/?$/);
+  if (!m){
+    out.innerHTML = '<div class="card"><h3>Nothing to redeem</h3><p class="mb-0 muted">'
+      + 'This page expects a confirmation link. Start from the '
+      + '<a href="/notarize">notarisation page</a>.</p></div>';
+    return;
+  }
+  try{
+    const response = await fetch("/api/v1/confirm-key/" + encodeURIComponent(m[1]), {method:"POST"});
+    if (response.status === 410){
+      out.innerHTML = '<div class="card"><h3>This link is no longer valid</h3>'
+        + '<p class="muted">Confirmation links work once and expire after a day. If you have '
+        + 'already redeemed it, you have your key; if you lost it, request another — a new key '
+        + 'never invalidates certificates issued with the old one.</p>'
+        + '<div class="btn-row"><a class="btn btn-primary btn-sm" href="/notarize">Request a new key</a></div></div>';
+      return;
+    }
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    const data = await response.json();
+    out.innerHTML = `<div class="card">
+        <div class="receipt-head"><h3 style="margin:0">Key issued</h3>
+          <span class="verdict v-ok">Copy it now</span></div>
+        <p class="muted">Store it in a password manager. This page is the only time it is ever displayed.</p>
+        <div class="hashbox"><span class="k">API key</span><span class="mono" id="secret">${esc(data.api_key)}</span></div>
+        <div class="btn-row" style="margin-top:20px">
+          <button class="btn btn-primary btn-sm" id="copy">Copy to clipboard</button>
+          <a class="btn btn-outline btn-sm" href="/notarize">Go and notarise</a>
+        </div>
+        <p class="muted" style="margin-top:20px;margin-bottom:0">Whoever holds this key can notarise
+        in your name, and every certificate it produces carries your identifier. Do not email it or
+        commit it to a repository. If it leaks, ask the Foundation to disable it — revoking a key
+        never invalidates the proofs already issued with it.</p>
+      </div>`;
+    document.getElementById("copy").addEventListener("click", async e => {
+      await navigator.clipboard.writeText(data.api_key);
+      e.target.textContent = "Copied";
+    });
+  }catch(err){
+    out.innerHTML = '<div class="card"><h3>Something went wrong</h3><p class="mb-0 muted">'
+      + esc(err.message) + ' — no key was issued, so your link may still be usable. Try again.</p></div>';
+  }
+})();
+</script>
+</body>
+</html>
