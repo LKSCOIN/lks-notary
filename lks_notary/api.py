@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime
+from urllib.parse import quote
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +16,7 @@ from sqlalchemy.orm import Session
 
 import logging
 
-from . import __version__, mailer, repository
+from . import __version__, mailer, repository, trace, trace_repo
 from .leaf import as_utc, canonical_record
 from .config import settings
 from .db import get_session
@@ -321,6 +322,140 @@ def confirm_key_page(token: str) -> FileResponse:
     return FileResponse(STATIC_DIR / "key.html")
 
 
+# --- LKS Trace -----------------------------------------------------------
+
+class TraceEventBody(BaseModel):
+    lot_id: str = Field(max_length=120, description="Lot identifier, GS1 or free-form")
+    event: str = Field(description="One of " + ", ".join(trace.EVENT_TYPES))
+    organization: str = Field(max_length=160)
+    occurred_at: datetime | None = None
+    product_code: str | None = Field(default=None, max_length=64)
+    quantity: str | None = Field(default=None, max_length=32,
+                                 description="A string, not a number: JCS refuses floats")
+    unit: str | None = Field(default=None, max_length=16)
+    facility: str | None = Field(default=None, max_length=160)
+    parent_lots: list[str] | None = None
+    metadata_hash: str | None = Field(default=None,
+                                      description="SHA-256 of data you keep in your systems")
+
+    @field_validator("event")
+    @classmethod
+    def _known_event(cls, value: str) -> str:
+        value = value.strip().upper()
+        if value not in trace.EVENT_TYPES:
+            raise ValueError(f"unknown event type; expected one of {', '.join(trace.EVENT_TYPES)}")
+        return value
+
+    @field_validator("metadata_hash")
+    @classmethod
+    def _valid_metadata_hash(cls, value: str | None) -> str | None:
+        if value and not HEX64.match(value):
+            raise ValueError("metadata_hash must be 64 hex characters (SHA-256)")
+        return value.lower() if value else None
+
+
+@app.post("/api/v1/trace/lot", status_code=202)
+def trace_record(
+    body: TraceEventBody,
+    http_request: Request,
+    session: Session = Depends(get_session),
+    key: ApiKey | None = Depends(optional_api_key),
+) -> dict[str, Any]:
+    """Record one traceability event and queue its proof.
+
+    The event is notarised exactly like a document: only its canonical record
+    is hashed and put on chain. Whatever industrial detail you keep in your own
+    systems stays there — commit to it with ``metadata_hash`` if you want to be
+    able to prove later that it did not change.
+    """
+    if key is None:
+        if not settings.anon_enabled:
+            raise HTTPException(status_code=401, detail="an API key is required")
+        if not repository.consume_anon_quota(
+            session, client_ip(http_request), settings.anon_daily_limit
+        ):
+            raise HTTPException(status_code=429, detail="daily limit reached for this address")
+    try:
+        event, notarization = trace_repo.record_event(
+            session,
+            lot_id=body.lot_id, event_type=body.event, organization=body.organization,
+            occurred_at=body.occurred_at, product_code=body.product_code,
+            quantity=body.quantity, unit=body.unit, facility=body.facility,
+            parent_lots=body.parent_lots, metadata_hash=body.metadata_hash, requester=key,
+        )
+    except trace.TraceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    parsed = trace.parse_lot_id(body.lot_id)
+    return {
+        "lot": parsed.to_json(),
+        "event_id": event.id,
+        "event_hash": event.event_hash.hex(),
+        "certificate_id": notarization.id,
+        "verify_url": f"{settings.public_base_url}/v/{notarization.id}",
+        "lot_url": f"{settings.public_base_url}/lot?id={quote(parsed.raw)}",
+        "digital_link": parsed.digital_link(settings.public_base_url),
+        "status": "pending",
+    }
+
+
+@app.post("/api/v1/trace/demo", status_code=201)
+def trace_demo(
+    http_request: Request,
+    session: Session = Depends(get_session),
+    key: ApiKey | None = Depends(optional_api_key),
+) -> dict[str, Any]:
+    """Create a sample supply chain: raw material, transformation, a split into
+    two lots, a quality check and a shipment. Six real proofs, on the real
+    chain — the demo is not a simulation."""
+    if key is None and settings.anon_enabled:
+        if not repository.consume_anon_quota(
+            session, client_ip(http_request), settings.anon_daily_limit
+        ):
+            raise HTTPException(status_code=429, detail="daily limit reached for this address")
+    result = trace_repo.create_demo(session, key)
+    result["lot_url"] = f"{settings.public_base_url}/lot?id={quote(result['entry_point'])}"
+    return result
+
+
+@app.get("/api/v1/trace/lot/{lot_id:path}")
+def trace_lot(lot_id: str, session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Lot state, full chain of custody, and genealogy in both directions.
+
+    Public and unauthenticated, like every read here: a traceability claim that
+    only the company can check is a claim, not evidence.
+    """
+    parsed = trace.parse_lot_id(lot_id)
+    lot = trace_repo.get_lot(session, parsed.raw)
+    if lot is None:
+        raise HTTPException(status_code=404, detail="unknown lot")
+
+    events = trace_repo.lot_events(session, parsed.raw)
+    edges = trace_repo.all_edges(session)
+    base = settings.public_base_url
+
+    return {
+        "lot": {
+            **parsed.to_json(),
+            "product_code": lot.product_code,
+            "organization": lot.organization,
+            "status": lot.status,
+            "created_at": repository.as_utc(lot.created_at).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "digital_link": parsed.digital_link(base),
+        },
+        "events": [trace_repo.event_to_json(session, e, base) for e in events],
+        "genealogy": {
+            "descendants": trace.genealogy(edges, parsed.raw, downstream=True),
+            "ancestors": trace.genealogy(edges, parsed.raw, downstream=False),
+        },
+        "spec": {
+            "event_hash": "SHA-256 of canonical_record (JCS, RFC 8785)",
+            "chaining": "each event commits to the previous one via previous_hash",
+            "proof": "the event hash is notarised; follow verify_url for the Merkle and chain proof",
+        },
+    }
+
+
 @app.get("/api/v1/audit/verify")
 def audit_verify(session: Session = Depends(get_session)) -> dict[str, Any]:
     ok, broken = repository.verify_audit_chain(session)
@@ -335,6 +470,18 @@ def verification_page() -> FileResponse:
 @app.get("/recent")
 def recent_page() -> FileResponse:
     return FileResponse(STATIC_DIR / "recent.html")
+
+
+@app.get("/trace")
+def trace_page() -> FileResponse:
+    return FileResponse(STATIC_DIR / "trace.html")
+
+
+@app.get("/lot")
+def lot_page() -> FileResponse:
+    """Public lot history. The identifier travels in the query string so that a
+    GS1 Digital Link, which contains slashes, survives being passed around."""
+    return FileResponse(STATIC_DIR / "lot.html")
 
 
 @app.get("/notarize")

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lot history — LKS Trace | LKSCOIN</title>
+<meta name="description" content="Record traceability events for a production lot on the LKSCOIN blockchain: transformations, splits, quality checks and shipments, each with a verifiable proof. Your industrial data stays in your systems.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#175DAB">
+<meta name="robots" content="index,follow">
+<link rel="icon" href="/static/assets/img/favicon.ico" sizes="any">
+<link rel="icon" href="/static/assets/img/favicon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="/static/assets/img/apple-touch-icon.png">
+<link rel="stylesheet" href="/static/assets/css/lks.css">
+<style>
+  /* Page-specific only. Everything else comes from the site design system. */
+  .drop{display:block;border:2px dashed var(--lks-blue-light);border-radius:var(--radius);
+        padding:52px 24px;text-align:center;cursor:pointer;background:var(--surface);
+        transition:border-color .18s var(--ease),background .18s var(--ease)}
+  .drop:hover,.drop.over{border-color:var(--lks-cyan);background:var(--surface-2)}
+  .drop input{display:none}
+  .drop .drop-title{font-weight:700;color:var(--ink);font-size:1.12rem;margin-bottom:.35em}
+  .hash-input{width:100%;padding:14px 16px;border:1px solid var(--line);border-radius:var(--radius-sm);
+        font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86rem;color:var(--ink-soft);background:#fff}
+  .hash-input:focus{outline:none;border-color:var(--lks-blue-light);box-shadow:0 0 0 3px rgba(46,134,214,.14)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.8rem;word-break:break-all}
+  .kv{display:flex;gap:18px;padding:13px 0;border-bottom:1px solid var(--line)}
+  .kv:last-child{border-bottom:none}
+  .kv .k{flex:0 0 220px;color:var(--muted);font-weight:600;font-size:.92rem}
+  .kv .v{flex:1;min-width:0}
+  .verdict{display:inline-flex;align-items:center;gap:9px;padding:7px 16px;border-radius:999px;
+        font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .v-ok{background:rgba(30,158,106,.12);color:var(--ok);border:1px solid rgba(30,158,106,.3)}
+  .v-wait{background:rgba(192,138,30,.12);color:var(--warn);border:1px solid rgba(192,138,30,.3)}
+  .v-bad{background:rgba(190,52,42,.10);color:#BE342A;border:1px solid rgba(190,52,42,.28)}
+  .chk{display:flex;align-items:flex-start;gap:13px;padding:11px 0}
+  .chk svg{flex:0 0 22px;height:22px;margin-top:1px}
+  .chk .lbl{font-weight:600;color:var(--ink)}
+  .chk .det{color:var(--muted);font-size:.82rem}
+  .privacy-note{display:flex;gap:18px;align-items:flex-start}
+  .privacy-note svg{flex:0 0 30px;height:30px;stroke:var(--ok);fill:none;stroke-width:1.6;
+        stroke-linecap:round;stroke-linejoin:round;margin-top:2px}
+  .ext{margin-left:6px;vertical-align:-1px}
+  .step-head{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+  .step-num{flex:0 0 34px;width:34px;height:34px;border-radius:50%;background:var(--lks-blue);color:#fff;
+        display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.95rem}
+  .field{margin-top:16px}
+  .field label{display:block;font-weight:600;color:var(--ink);font-size:.92rem;margin-bottom:6px}
+  .remember{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:.9rem;color:var(--muted);cursor:pointer}
+  .remember input{width:16px;height:16px;accent-color:var(--lks-blue)}
+  .hashbox{display:flex;align-items:baseline;gap:14px;margin-top:18px;padding:14px 16px;
+        background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm)}
+  .hashbox .k{color:var(--muted);font-weight:600;font-size:.82rem;flex:0 0 auto}
+  .receipt-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:12px}
+  .receipt-grid{display:flex;gap:30px;align-items:flex-start;flex-wrap:wrap}
+  .receipt-grid > div:first-child{flex:1 1 340px;min-width:0}
+  .qr-col{flex:0 0 auto;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px}
+  .qr-col .muted{font-size:.78rem}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:22px 0 18px;border-bottom:1px solid var(--line)}
+  .tab{background:none;border:none;padding:10px 16px;font:inherit;font-size:.93rem;font-weight:600;
+        color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tab:hover{color:var(--ink)}
+  .tab.is-active{color:var(--lks-blue);border-bottom-color:var(--lks-blue)}
+  .timeline{position:relative;padding-left:34px}
+  .timeline::before{content:"";position:absolute;left:11px;top:8px;bottom:8px;width:2px;background:var(--line)}
+  .tevent{position:relative;padding:0 0 26px 0}
+  .tevent::before{content:"";position:absolute;left:-29px;top:4px;width:16px;height:16px;border-radius:50%;
+        background:#fff;border:3px solid var(--lks-blue)}
+  .tevent.is-recall::before{border-color:#BE342A}
+  .tevent h4{margin:0 0 3px;color:var(--ink);font-size:1.02rem}
+  .tevent .when{color:var(--muted);font-size:.84rem}
+  .tevent .who{font-size:.9rem}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .chip{font-size:.76rem;padding:3px 10px;border-radius:999px;background:var(--surface-2);color:var(--ink-soft)}
+  .lotgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:8px}
+  .lotbox{border:1px solid var(--line);border-radius:var(--radius-sm);padding:14px 16px;background:#fff}
+  .lotbox .l{font-size:.76rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .lotbox .v{font-weight:700;color:var(--ink);word-break:break-all}
+  .lotlinks a{display:inline-block;margin:0 10px 8px 0;font-family:ui-monospace,monospace;font-size:.8rem}
+  .banner{border-radius:var(--radius);padding:16px 20px;margin-bottom:24px}
+  .b-recall{background:rgba(190,52,42,.08);border:1px solid rgba(190,52,42,.3);color:#8E2620}
+  .evgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+  .evbtn{border:1px solid var(--line);background:#fff;border-radius:var(--radius-sm);padding:13px 15px;
+        text-align:left;cursor:pointer;font:inherit;transition:border-color .15s,background .15s}
+  .evbtn:hover{border-color:var(--lks-blue-light);background:var(--surface)}
+  .evbtn.is-active{border-color:var(--lks-blue);background:var(--surface-2);box-shadow:0 0 0 2px rgba(23,93,171,.12)}
+  .evbtn b{display:block;color:var(--ink);font-size:.94rem}
+  .evbtn span{color:var(--muted);font-size:.8rem}
+  .keyline{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .keyid{font-size:.84rem;color:var(--muted);font-family:ui-monospace,monospace}
+  .linkbtn{background:none;border:none;padding:0;font:inherit;font-size:.84rem;
+        color:var(--lks-blue-light);text-decoration:underline;cursor:pointer}
+  .keynotes{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin-top:22px}
+  .keynote{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);padding:16px 18px}
+  .keynote h4{margin:0 0 6px;font-size:.95rem;color:var(--ink)}
+  .keynote p{margin:0;font-size:.88rem;color:var(--muted)}
+  button.btn{font:inherit;cursor:pointer;border:none}
+  button.btn:disabled{opacity:.45;cursor:not-allowed}
+  @media(max-width:700px){.kv{flex-direction:column;gap:2px}.kv .k{flex:none}}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <nav class="nav" aria-label="Main">
+      <a class="brand" href="https://www.lkschain.io/index.html" aria-label="LKSCOIN — LKS Foundation">
+        <img class="brand-logo" src="/static/assets/img/lks-foundation-logo.png" alt="LKS Foundation" width="680" height="228">
+      </a>
+      <button class="nav-toggle" aria-label="Open menu" aria-expanded="false"><span></span><span></span><span></span></button>
+      <ul class="nav-links">
+        <li><a href="https://www.lkschain.io/notary.html">Notary</a></li>
+        <li><a href="https://www.lkschain.io/trace.html">Trace</a></li>
+        <li><a href="https://www.lkschain.io/technology.html">Technology</a></li>
+        <li><a href="https://www.lkschain.io/developers.html">Developers</a></li>
+        <li><a href="https://www.lkschain.io/network.html">Network</a></li>
+        <li><a href="https://www.lkschain.io/roadmap.html">Roadmap</a></li>
+        <li><a href="https://www.lkschain.io/foundation.html">Foundation</a></li>
+        <li><a href="https://www.lkschain.io/resources.html">Resources</a></li>
+        <li><a class="nav-explorer" href="https://www.lkschain.io/blockchain.html">Explorer</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<section class="hero hero-sub hero-photo">
+  <img class="hero-bg" src="/static/assets/img/hero/circuit-alt.jpg" alt="" width="1920" height="872" decoding="async">
+  <div class="hero-mesh"></div>
+  <div class="container">
+    <span class="eyebrow" style="color:#6FD8EC">LKS Trace</span>
+    <h1 id="title">Lot history</h1>
+    <p class="hero-lead">The full chain of custody of a production lot, each event with its own proof on the LKSCOIN blockchain — and the genealogy that tells you exactly which lots a recall would affect.</p>
+    <div class="btn-row">
+      <a class="btn btn-ghost-light" href="/trace">Record an event</a>
+      <a class="btn btn-ghost-light" href="/">Verify a document</a>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container container-narrow">
+    <div class="card" style="margin-bottom:26px">
+      <label for="lookup" style="display:block;font-weight:600;color:var(--ink);margin-bottom:8px">Lot identifier</label>
+      <input class="hash-input" type="text" id="lookup" placeholder="LOT-2026-001   or   01/00012345600012/10/BATCH-7" spellcheck="false">
+      <div class="btn-row" style="margin-top:14px">
+        <button class="btn btn-primary btn-sm" id="go">Look it up</button>
+      </div>
+    </div>
+    <div id="out"></div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="https://www.lkschain.io/index.html" aria-label="LKSCOIN — LKS Foundation">
+          <img class="brand-logo-footer" src="/static/assets/img/lks-foundation-logo-white.png" alt="LKS Foundation" width="680" height="228">
+        </a>
+        <p>A decentralised network for certifying, notarising, verifying and tracing data, documents, content and processes.</p>
+      </div>
+      <div><h4>Services</h4><a href="https://www.lkschain.io/notary.html">LKS Notary</a><a href="/notarize">Notarise a document</a><a href="/">Verify a document</a><a href="/recent">Latest notarisations</a><a href="/trace">Record a lot event</a><a href="/lot">Look up a lot</a><a href="https://www.lkschain.io/trace.html">LKS Trace</a><a href="https://www.lkschain.io/technology.html#identity">LKS Identity</a><a href="https://www.lkschain.io/developers.html">Service API</a></div>
+      <div><h4>Network</h4><a href="https://www.lkschain.io/network.html">Masternodes</a><a href="https://www.lkschain.io/network.html#downloads">Wallet &amp; Core</a><a href="https://www.lkschain.io/blockchain.html">Block explorer</a><a href="https://www.lkschain.io/technology.html">Security model</a></div>
+      <div><h4>Foundation</h4><a href="https://www.lkschain.io/foundation.html">About</a><a href="https://www.lkschain.io/foundation.html#team">Team</a><a href="https://www.lkschain.io/resources.html">Resources</a><a href="https://www.lkschain.io/roadmap.html">Roadmap</a><a href="https://www.lkschain.io/foundation.html#contact">Contact</a></div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; <span data-year></span> LKS Foundation — Italian non-profit foundation</span>
+      <span><a href="https://www.lkschain.io/legal.html" style="display:inline">Legal &amp; privacy</a> &nbsp;·&nbsp; <a href="https://www.lkschain.io/legal.html#cookies" style="display:inline">Cookies</a></span>
+    </div>
+    <p class="footer-note">Nothing on this site constitutes financial, investment or legal advice, nor an offer to sell or solicit the purchase of any asset. Statements about services under development describe planned functionality and do not represent currently available features. Regulatory references are informational and do not replace a legal opinion.</p>
+  </div>
+</footer>
+
+<script src="/static/assets/js/lks.js"></script>
+<script src="/static/assets/js/easyqrcode.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const out = $("out");
+
+function chips(e){
+  const c = [];
+  if (e.quantity) c.push(esc(e.quantity) + (e.unit ? " " + esc(e.unit) : ""));
+  if (e.facility) c.push(esc(e.facility));
+  if (e.metadata_hash) c.push("private data committed");
+  return c.length ? `<div class="chips">${c.map(x => `<span class="chip">${x}</span>`).join("")}</div>` : "";
+}
+
+function proofLine(e){
+  const p = e.proof || {};
+  if (!p.certificate_id) return '<div class="muted" style="font-size:.84rem">No proof recorded</div>';
+  const state = p.status === "anchored" ? "anchored to Bitcoin"
+              : p.status === "confirmed" ? "confirmed on chain"
+              : p.status === "batched" ? "written to the chain, awaiting the block"
+              : "queued for the next batch";
+  return `<div class="muted" style="font-size:.84rem;margin-top:6px">Proof: ${state} · `
+       + `<a href="${esc(p.verify_url || "#")}">verify</a> · `
+       + `<span class="mono">${esc(e.event_hash.slice(0, 16))}…</span></div>`;
+}
+
+function lotLinks(list){
+  if (!list.length) return '<span class="muted">none</span>';
+  return list.map(l => `<a href="/lot?id=${encodeURIComponent(l)}">${esc(l)}</a>`).join("");
+}
+
+function render(d){
+  const lot = d.lot;
+  const recalled = lot.status === "recalled";
+  const desc = d.genealogy.descendants, anc = d.genealogy.ancestors;
+
+  const banner = recalled
+    ? `<div class="banner b-recall"><strong>This lot has been recalled.</strong>
+       ${desc.length ? `${desc.length} downstream lot${desc.length > 1 ? "s are" : " is"} affected and listed below.`
+                     : "No downstream lots are affected."}</div>` : "";
+
+  const timeline = d.events.map(e => `
+    <div class="tevent${e.type === "RECALL" ? " is-recall" : ""}">
+      <h4>${esc(e.type.replace("_", " "))}</h4>
+      <div class="when">${esc(e.occurred_at.replace("T", " ").replace("Z", ""))} UTC</div>
+      <div class="who">${esc(e.organization)}</div>
+      ${chips(e)}
+      ${proofLine(e)}
+    </div>`).join("");
+
+  return `${banner}
+    <div class="card" style="margin-bottom:20px">
+      <h3 style="margin-top:0">${esc(lot.lot_id)}</h3>
+      <div class="lotgrid" style="margin-top:16px">
+        <div class="lotbox"><div class="l">Status</div><div class="v">${esc(lot.status)}</div></div>
+        <div class="lotbox"><div class="l">Organisation</div><div class="v">${esc(lot.organization)}</div></div>
+        <div class="lotbox"><div class="l">Product</div><div class="v">${esc(lot.product_code || "—")}</div></div>
+        <div class="lotbox"><div class="l">Identifier</div><div class="v">${lot.gs1 ? "GS1" : "free-form"}</div></div>
+      </div>
+      ${lot.digital_link ? `<div class="kv" style="margin-top:16px"><div class="k">GS1 Digital Link</div>
+        <div class="v mono">${esc(lot.digital_link)}</div></div>` : ""}
+      <div style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;margin-top:18px">
+        <div id="qrcode"></div>
+        <div style="flex:1;min-width:220px">
+          <div class="l muted" style="font-size:.76rem;text-transform:uppercase;letter-spacing:.06em">Made from</div>
+          <div class="lotlinks" style="margin:6px 0 14px">${lotLinks(anc)}</div>
+          <div class="l muted" style="font-size:.76rem;text-transform:uppercase;letter-spacing:.06em">Went into</div>
+          <div class="lotlinks" style="margin-top:6px">${lotLinks(desc)}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Chain of custody</h3>
+      <p class="muted">${d.events.length} event${d.events.length === 1 ? "" : "s"}, oldest first.
+      Each one commits to the previous, so the history cannot be reordered after the fact.</p>
+      <div class="timeline" style="margin-top:20px">${timeline}</div>
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <h3 style="margin-top:0">Checking this yourself</h3>
+      <p class="mb-0 muted">Each event above links to its proof. The proof shows the canonical
+      record that was hashed, the Merkle path, the LKSCOIN transaction and, once complete, the
+      Bitcoin attestation. Nothing on this page has to be taken on trust —
+      <a href="https://www.lkschain.io/developers.html#verifier">verify it independently</a>.</p>
+    </div>`;
+}
+
+async function load(id){
+  if (!id) return;
+  out.innerHTML = '<div class="card muted">Loading…</div>';
+  $("title").textContent = id;
+  try{
+    const r = await fetch("/api/v1/trace/lot/" + encodeURIComponent(id));
+    if (r.status === 404){
+      out.innerHTML = '<div class="card"><h3>Unknown lot</h3><p class="mb-0 muted">'
+        + 'No events have been recorded for this identifier. Check the spelling, or '
+        + '<a href="/trace">record the first event</a>.</p></div>';
+      return;
+    }
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    out.innerHTML = render(data);
+    const target = data.lot.digital_link || (location.origin + "/lot?id=" + encodeURIComponent(id));
+    new QRCode($("qrcode"), {text: target, width: 128, height: 128,
+                             colorDark: "#175DAB", colorLight: "#ffffff"});
+  }catch(err){
+    out.innerHTML = `<div class="card"><h3>Could not load the lot</h3>
+      <p class="mb-0 muted">${esc(err.message)}</p></div>`;
+  }
+}
+
+$("go").addEventListener("click", () => {
+  const v = $("lookup").value.trim();
+  if (v) { history.replaceState(null, "", "/lot?id=" + encodeURIComponent(v)); load(v); }
+});
+$("lookup").addEventListener("keydown", e => { if (e.key === "Enter") $("go").click(); });
+
+const fromUrl = new URLSearchParams(location.search).get("id");
+if (fromUrl){ $("lookup").value = fromUrl; load(fromUrl); }
+</script>
+</body>
+</html>

@@ -75,6 +75,68 @@ class Notarization(Base):
     )
 
 
+class TraceLot(Base):
+    """A lot. The identifier is the primary key: it is what a QR code carries
+    and what a partner quotes in an email, so it must be the thing we look up."""
+
+    __tablename__ = "trace_lots"
+
+    lot_id: Mapped[str] = mapped_column(String(120), primary_key=True)
+    gtin: Mapped[str | None] = mapped_column(String(14), nullable=True)
+    batch: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    serial: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    product_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    organization: Mapped[str] = mapped_column(String(160))
+    requester_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("api_keys.id"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(16), default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class TraceEvent(Base):
+    """One event on one lot.
+
+    ``canonical_record`` is stored verbatim: it is the exact byte string that
+    was hashed, and without it nobody could reproduce the proof years later
+    from a database whose serialisation rules have since changed.
+    """
+
+    __tablename__ = "trace_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    lot_id: Mapped[str] = mapped_column(String(120), ForeignKey("trace_lots.lot_id"))
+    event_type: Mapped[str] = mapped_column(String(16))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    organization: Mapped[str] = mapped_column(String(160))
+    facility: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    quantity: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    unit: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    metadata_hash: Mapped[bytes | None] = mapped_column(LargeBinary(32), nullable=True)
+    canonical_record: Mapped[str] = mapped_column(Text)
+    event_hash: Mapped[bytes] = mapped_column(LargeBinary(32), unique=True)
+    previous_hash: Mapped[bytes | None] = mapped_column(LargeBinary(32), nullable=True)
+    notarization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("notarizations.id"), nullable=True
+    )
+
+
+class TraceLink(Base):
+    """One parent-child edge. Separate from the events so a recall can walk the
+    graph in SQL instead of parsing JSON."""
+
+    __tablename__ = "trace_links"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    parent_lot: Mapped[str] = mapped_column(String(120))
+    child_lot: Mapped[str] = mapped_column(String(120))
+    event_id: Mapped[str] = mapped_column(String(36), ForeignKey("trace_events.id"))
+
+    __table_args__ = (UniqueConstraint("parent_lot", "child_lot", "event_id", name="edge"),)
+
+
 class AnonQuota(Base):
     """Daily counter per anonymous submitter.
 
