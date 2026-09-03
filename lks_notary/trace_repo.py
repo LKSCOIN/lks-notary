@@ -63,6 +63,65 @@ def all_edges(session: Session) -> list[tuple[str, str]]:
     ).all()]
 
 
+def recent_lots(session: Session, limit: int = 50) -> list[dict[str, Any]]:
+    """Lots by most recent activity, with the last event on each.
+
+    Two queries rather than a per-row lookup: fetch the page of lots, then all
+    their events at once and reduce in Python. At a feed's size that is cheaper
+    than a join with a window function and far easier to read.
+
+    Unlike the notarisation feed, the organisation is shown: on a traceability
+    event it is a declared field, part of what the company is attesting, and it
+    is already visible on the lot page.
+    """
+    lots = list(session.execute(
+        select(TraceLot).order_by(TraceLot.updated_at.desc()).limit(min(limit, 200))
+    ).scalars())
+    if not lots:
+        return []
+
+    ids = [lot.lot_id for lot in lots]
+    rows = session.execute(
+        select(TraceEvent.lot_id, TraceEvent.event_type, TraceEvent.occurred_at,
+               TraceEvent.recorded_at, TraceEvent.notarization_id)
+        .where(TraceEvent.lot_id.in_(ids))
+        .order_by(TraceEvent.occurred_at, TraceEvent.recorded_at)
+    ).all()
+
+    counts: dict[str, int] = {}
+    last: dict[str, tuple] = {}
+    for row in rows:
+        counts[row[0]] = counts.get(row[0], 0) + 1
+        last[row[0]] = row
+
+    proofs = {}
+    notarization_ids = [r[4] for r in last.values() if r[4]]
+    if notarization_ids:
+        for n in session.execute(
+            select(Notarization).where(Notarization.id.in_(notarization_ids))
+        ).scalars():
+            proofs[n.id] = n
+
+    out = []
+    for lot in lots:
+        row = last.get(lot.lot_id)
+        proof = proofs.get(row[4]) if row and row[4] else None
+        out.append({
+            "lot_id": lot.lot_id,
+            "gs1": lot.gtin is not None,
+            "organization": lot.organization,
+            "product_code": lot.product_code,
+            "status": lot.status,
+            "events": counts.get(lot.lot_id, 0),
+            "last_event": row[1] if row else None,
+            "last_event_at": (repository.as_utc(row[2]).strftime("%Y-%m-%dT%H:%M:%SZ")
+                              if row else None),
+            "proof_status": proof.status if proof else None,
+            "certificate_id": proof.id if proof else None,
+        })
+    return out
+
+
 def record_event(
     session: Session,
     *,

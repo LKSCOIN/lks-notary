@@ -61,6 +61,17 @@
         color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
   .tab:hover{color:var(--ink)}
   .tab.is-active{color:var(--lks-blue);border-bottom-color:var(--lks-blue)}
+  .feed{width:100%;border-collapse:collapse;font-size:.9rem}
+  .feed th{text-align:left;padding:11px 14px;background:var(--surface);color:var(--ink);
+        font-size:.74rem;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid var(--line)}
+  .feed td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  .feed tbody tr:last-child td{border-bottom:none}
+  .feed tbody tr{cursor:pointer}
+  .feed tbody tr:hover{background:var(--surface)}
+  .feed .lotcell{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;word-break:break-all}
+  .table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:#fff}
+  .tag{font-size:.72rem;padding:2px 9px;border-radius:999px;background:var(--surface-2);color:var(--ink-soft);margin-left:6px}
+  .tag-recall{background:rgba(190,52,42,.12);color:#BE342A}
   .timeline{position:relative;padding-left:34px}
   .timeline::before{content:"";position:absolute;left:11px;top:8px;bottom:8px;width:2px;background:var(--line)}
   .tevent{position:relative;padding:0 0 26px 0}
@@ -142,13 +153,32 @@
 <section class="section">
   <div class="container container-narrow">
     <div class="card" style="margin-bottom:26px">
-      <label for="lookup" style="display:block;font-weight:600;color:var(--ink);margin-bottom:8px">Lot identifier</label>
+      <label for="lookup" style="display:block;font-weight:600;color:var(--ink);margin-bottom:8px">Know the identifier? Look it up</label>
       <input class="hash-input" type="text" id="lookup" placeholder="LOT-2026-001   or   01/00012345600012/10/BATCH-7" spellcheck="false">
       <div class="btn-row" style="margin-top:14px">
         <button class="btn btn-primary btn-sm" id="go">Look it up</button>
       </div>
     </div>
     <div id="out"></div>
+
+    <div id="browse" hidden>
+      <div class="section-head" style="margin-top:34px">
+        <span class="eyebrow">Recently processed</span>
+        <h2 style="font-size:1.6rem">Or pick one from the last lots recorded</h2>
+        <p class="lead" style="font-size:1rem">Most recent activity first. Click any row to open
+        its full chain of custody.</p>
+      </div>
+      <div class="table-scroll">
+        <table class="feed">
+          <thead>
+            <tr><th>Last activity (UTC)</th><th>Lot</th><th>Organisation</th><th>Last event</th><th>Events</th></tr>
+          </thead>
+          <tbody id="lotrows"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <p class="muted" style="margin-top:16px">Nothing here yet? The
+      <a href="/trace">sample supply chain</a> builds one in a click.</p>
+    </div>
   </div>
 </section>
 
@@ -163,7 +193,7 @@
         </a>
         <p>A decentralised network for certifying, notarising, verifying and tracing data, documents, content and processes.</p>
       </div>
-      <div><h4>Services</h4><a href="https://www.lkschain.io/notary.html">LKS Notary</a><a href="/notarize">Notarise a document</a><a href="/">Verify a document</a><a href="/recent">Latest notarisations</a><a href="/trace">Record a lot event</a><a href="/lot">Look up a lot</a><a href="https://www.lkschain.io/trace.html">LKS Trace</a><a href="https://www.lkschain.io/technology.html#identity">LKS Identity</a><a href="https://www.lkschain.io/developers.html">Service API</a></div>
+      <div><h4>Services</h4><a href="https://www.lkschain.io/notary.html">LKS Notary</a><a href="/notarize">Notarise a document</a><a href="/">Verify a document</a><a href="/recent">Latest notarisations</a><a href="/trace">Record a lot event</a><a href="/lot">Browse lots</a><a href="https://www.lkschain.io/trace.html">LKS Trace</a><a href="https://www.lkschain.io/technology.html#identity">LKS Identity</a><a href="https://www.lkschain.io/developers.html">Service API</a></div>
       <div><h4>Network</h4><a href="https://www.lkschain.io/network.html">Masternodes</a><a href="https://www.lkschain.io/network.html#downloads">Wallet &amp; Core</a><a href="https://www.lkschain.io/blockchain.html">Block explorer</a><a href="https://www.lkschain.io/technology.html">Security model</a></div>
       <div><h4>Foundation</h4><a href="https://www.lkschain.io/foundation.html">About</a><a href="https://www.lkschain.io/foundation.html#team">Team</a><a href="https://www.lkschain.io/resources.html">Resources</a><a href="https://www.lkschain.io/roadmap.html">Roadmap</a><a href="https://www.lkschain.io/foundation.html#contact">Contact</a></div>
     </div>
@@ -294,8 +324,39 @@ $("go").addEventListener("click", () => {
 });
 $("lookup").addEventListener("keydown", e => { if (e.key === "Enter") $("go").click(); });
 
+async function browse(){
+  $("browse").hidden = false;
+  try{
+    const data = await (await fetch("/api/v1/trace/recent?limit=40")).json();
+    const rows = $("lotrows");
+    if (!data.items.length){
+      rows.innerHTML = '<tr><td colspan="5" class="muted">No lots recorded yet.</td></tr>';
+      return;
+    }
+    rows.innerHTML = data.items.map(it => `
+      <tr data-id="${esc(it.lot_id)}">
+        <td class="muted">${esc((it.last_event_at || "").replace("T", " ").replace("Z", ""))}</td>
+        <td class="lotcell">${esc(it.lot_id)}${it.gs1 ? '<span class="tag">GS1</span>' : ""}${
+          it.status === "recalled" ? '<span class="tag tag-recall">recalled</span>' : ""}</td>
+        <td>${esc(it.organization)}</td>
+        <td>${esc((it.last_event || "—").replace("_", " "))}</td>
+        <td>${it.events}</td>
+      </tr>`).join("");
+    rows.querySelectorAll("tr[data-id]").forEach(tr => tr.addEventListener("click", () => {
+      const id = tr.dataset.id;
+      history.replaceState(null, "", "/lot?id=" + encodeURIComponent(id));
+      $("lookup").value = id;
+      $("browse").hidden = true;
+      load(id);
+    }));
+  }catch(err){
+    $("lotrows").innerHTML = `<tr><td colspan="5" class="muted">Could not load: ${esc(err.message)}</td></tr>`;
+  }
+}
+
 const fromUrl = new URLSearchParams(location.search).get("id");
 if (fromUrl){ $("lookup").value = fromUrl; load(fromUrl); }
+else browse();
 </script>
 </body>
 </html>

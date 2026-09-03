@@ -418,6 +418,13 @@ def trace_demo(
     return result
 
 
+@app.get("/api/v1/trace/recent")
+def trace_recent(limit: int = 50, session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Lots by most recent activity — the traceability counterpart of the
+    notarisation feed."""
+    return {"items": trace_repo.recent_lots(session, limit)}
+
+
 @app.get("/api/v1/trace/lot/{lot_id:path}")
 def trace_lot(lot_id: str, session: Session = Depends(get_session)) -> dict[str, Any]:
     """Lot state, full chain of custody, and genealogy in both directions.
@@ -475,6 +482,13 @@ def recent_page() -> FileResponse:
 @app.get("/trace")
 def trace_page() -> FileResponse:
     return FileResponse(STATIC_DIR / "trace.html")
+
+
+@app.get("/lots")
+def lots_page() -> FileResponse:
+    """Alias of /lot without an identifier: the same page, which shows the
+    recent lots when it has nothing to look up."""
+    return FileResponse(STATIC_DIR / "lot.html")
 
 
 @app.get("/lot")
