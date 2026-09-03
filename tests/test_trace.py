@@ -144,13 +144,23 @@ def test_demo_steps_describe_a_coherent_chain():
     from lks_notary.trace import DEMO_STEPS
 
     types = [step[1] for step in DEMO_STEPS]
+    hours = [step[5] for step in DEMO_STEPS]
+
+    # Offsets must be non-increasing: the story has to read forwards in time,
+    # and six events sharing one timestamp have no order at all.
+    assert hours == sorted(hours, reverse=True), "demo events must be ordered in time"
+    assert len(set(hours)) > 1, "all events at the same instant cannot be sequenced"
+
+    split_at = hours[types.index("SPLIT")]
+    check_at = hours[types.index("QUALITY_CHECK")]
+    assert split_at > check_at, "a lot cannot be checked before it exists"
     assert types[0] == "CREATE"
     assert types.count("SPLIT") == 2, "a split is what makes genealogy visible"
     assert "QUALITY_CHECK" in types and types[-1] == "SHIP"
 
     # every non-CREATE step must name a lot that an earlier step created
     seen = set()
-    for key, event_type, *_ in DEMO_STEPS:
+    for key, event_type, *_rest in DEMO_STEPS:
         if event_type == "CREATE":
             seen.add(key)
     assert seen == {"RAW"}

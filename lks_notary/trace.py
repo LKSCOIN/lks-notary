@@ -190,10 +190,14 @@ def genealogy(edges: list[tuple[str, str]], start: str, downstream: bool = True)
 # and its shape is asserted in the test suite, because this is the first thing
 # a visitor sees and a broken demo is worse than no demo.
 DEMO_STEPS = [
-    ("RAW",  "CREATE",        "Steel coil received from the mill",        "2400", "kg"),
-    ("A",    "TRANSFORM",     "Coil cut and pressed into blanks",         "2350", "kg"),
-    ("B1",   "SPLIT",         "Blanks split for two customer orders",     "1200", "kg"),
-    ("B2",   "SPLIT",         "Second half of the same production run",   "1150", "kg"),
-    ("B1",   "QUALITY_CHECK", "Dimensional check passed on order batch",  None,   None),
-    ("B1",   "SHIP",          "Shipped to the customer",                  "1200", "kg"),
+    # (lot key, event, note, quantity, unit, hours before now)
+    # The offsets matter: a supply chain read out of order is not a supply
+    # chain, and without them six events recorded in the same second have
+    # nothing to sort by.
+    ("RAW",  "CREATE",        "Steel coil received from the mill",       "2400", "kg", 72),
+    ("A",    "TRANSFORM",     "Coil cut and pressed into blanks",        "2350", "kg", 60),
+    ("B1",   "SPLIT",         "Blanks split for two customer orders",    "1200", "kg", 48),
+    ("B2",   "SPLIT",         "Second half of the same production run",  "1150", "kg", 48),
+    ("B1",   "QUALITY_CHECK", "Dimensional check passed on order batch", None,   None, 24),
+    ("B1",   "SHIP",          "Shipped to the customer",                 "1200", "kg", 6),
 ]

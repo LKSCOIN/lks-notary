@@ -7,7 +7,7 @@ proof queued, nor a proof that refers to an event nobody can read.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import select
@@ -20,6 +20,18 @@ from .models import ApiKey, Notarization, TraceEvent, TraceLink, TraceLot
 
 def _now() -> datetime:
     return datetime.now(timezone.utc).replace(microsecond=0)
+
+
+def _precise_now() -> datetime:
+    """Timestamps used for ordering keep their microseconds.
+
+    ``occurred_at`` is declared by the caller and rounded to the second, because
+    that is what goes into the canonical record and must be reproducible. But
+    two events declared in the same second still have an order, and losing it
+    turns a chain of custody into a bag of events — so ``recorded_at`` keeps
+    full precision and breaks the tie.
+    """
+    return datetime.now(timezone.utc)
 
 
 def get_lot(session: Session, lot_id: str) -> TraceLot | None:
@@ -116,7 +128,7 @@ def record_event(
 
     event = TraceEvent(
         id=str(uuid.uuid4()), lot_id=parsed.raw, event_type=event_type,
-        occurred_at=occurred, recorded_at=_now(), organization=organization,
+        occurred_at=occurred, recorded_at=_precise_now(), organization=organization,
         facility=facility, quantity=quantity, unit=unit,
         metadata_hash=bytes.fromhex(metadata_hash) if metadata_hash else None,
         canonical_record=record.decode(), event_hash=digest,
@@ -183,9 +195,10 @@ def create_demo(session: Session, requester: ApiKey | None = None) -> dict[str, 
     parents = {"A": ["RAW"], "B1": ["A"], "B2": ["A"]}
     created: list[dict[str, Any]] = []
 
-    for key, event_type, note, qty, unit in DEMO_STEPS:
+    for key, event_type, note, qty, unit, hours_ago in DEMO_STEPS:
         event, notarization = record_event(
             session,
+            occurred_at=_now() - timedelta(hours=hours_ago),
             lot_id=lots[key], event_type=event_type,
             organization="Demo Manufacturing Ltd",
             product_code="DEMO-PRESSED-PART",
