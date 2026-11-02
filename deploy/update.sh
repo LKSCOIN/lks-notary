@@ -31,7 +31,9 @@ done
 echo "    Apply any new one with:  sudo mysql lks_notary < sql/<file>.sql"
 
 echo ">>> Permissions"
-chmod -R g+rX "$ROOT"
+# var/ belongs to the service user, not to whoever runs this. Touching it fails,
+# and with set -e that failure would skip the restart below.
+find "$ROOT" -path "$ROOT/var" -prune -o -exec chmod g+rX {} +
 
 echo ">>> Restarting"
 sudo systemctl restart lks-notary-api lks-notary-worker
