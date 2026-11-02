@@ -279,6 +279,29 @@ async function recomputeRoot(leafHex, path){
   return hex(running);
 }
 
+/* Only canonical_record is covered by the proof; the other fields are unproved
+   text, so they must say the same. Same rule as lks_verify.py. Keys are sorted
+   before comparing because the record is canonical and the metadata is not. */
+function sortedJson(v){
+  if (Array.isArray(v)) return "[" + v.map(sortedJson).join(",") + "]";
+  if (v && typeof v === "object")
+    return "{" + Object.keys(v).sort().map(k => JSON.stringify(k) + ":" + sortedJson(v[k])).join(",") + "}";
+  return JSON.stringify(v === undefined ? null : v);
+}
+function recordMismatches(cert){
+  let record;
+  try { record = JSON.parse(cert.canonical_record); }
+  catch (e) { return ["canonical_record is not valid JSON"]; }
+  if (!record || typeof record !== "object" || Array.isArray(record))
+    return ["canonical_record is not a JSON object"];
+  const problems = [];
+  if (record.hash !== cert.document_hash) problems.push("document_hash");
+  const stated = {hash_algo: "algo", received_at: "received_at", requester: "requester", metadata: "metadata"};
+  for (const [field, key] of Object.entries(stated))
+    if (field in cert && sortedJson(cert[field]) !== sortedJson(record[key])) problems.push(field);
+  return problems;
+}
+
 const I_OK   = '<svg viewBox="0 0 24 24" fill="none" stroke="#1E9E6A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.5 2.5L16 9"/></svg>';
 const I_BAD  = '<svg viewBox="0 0 24 24" fill="none" stroke="#BE342A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>';
 const I_WAIT = '<svg viewBox="0 0 24 24" fill="none" stroke="#C08A1E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 7v5l3 2"/></svg>';
@@ -298,6 +321,13 @@ async function render(cert, expectedHash){
                                : "The file does NOT match this certificate", cert.document_hash));
     if (!same) verdict = "bad";
   }
+
+  const mismatches = recordMismatches(cert);
+  checks.push(chk(!mismatches.length,
+    mismatches.length ? "This certificate does not say what its certified record says"
+                      : "The certificate states what the certified record says",
+    mismatches.join(", ")));
+  if (mismatches.length) verdict = "bad";
 
   const leaf = await recomputeLeaf(cert.canonical_record);
   const leafOk = leaf === cert.leaf_hash;
@@ -338,6 +368,10 @@ async function render(cert, expectedHash){
       <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:8px">
         <h3 style="margin:0">Verification result</h3>${badge}</div>
       ${checks.join("")}
+      <p class="muted mb-0" style="font-size:.84rem;margin-top:12px">The fingerprint and the Merkle
+      root are recomputed in your browser. The blockchain and Bitcoin entries are reported by this
+      service: to confirm them on a node of your choice, use the
+      <a href="https://www.lkschain.io/developers.html#verifier">independent verifier</a>.</p>
     </div>
     <div class="card" style="margin-top:16px">
       ${kv("Certificate", esc(cert.certificate_id))}

@@ -92,6 +92,17 @@ docker compose up -d db      # PostgreSQL with the schema loaded
 uvicorn lks_notary.api:app --reload
 ```
 
+## What VALID means
+
+`lks_verify.py` says VALID only when a node you chose confirmed that a transaction in a
+block carries the root. Without `--rpc` the answer is CONSISTENT, exit status 2: the
+arithmetic adds up, but it runs over numbers the certificate supplies, and anyone can
+invent a certificate that adds up. Scripts that treated exit status 0 from a run without
+`--rpc` as success must add a node, or accept 2.
+
+The verification page recomputes the record and the Merkle root in the browser, but the
+blockchain and Bitcoin entries it shows come from this service, and it says so.
+
 ## What this is not
 
 A qualified electronic timestamp under eIDAS. It is computer evidence: proof
