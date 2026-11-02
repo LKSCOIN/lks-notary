@@ -32,6 +32,7 @@ browser or from a single-file script that trusts nobody.
 | Chain scanner for the explorer | done |
 | PDF certificate with QR code | not started |
 | Rate limiting per API key | nginx only, per-key limit not started |
+| LKS Log (streams, seals, agent and verifier) | done, tested end to end with a fake node; not yet run on mainnet |
 
 ## On-chain format
 
@@ -94,14 +95,68 @@ uvicorn lks_notary.api:app --reload
 
 ## What VALID means
 
-`lks_verify.py` says VALID only when a node you chose confirmed that a transaction in a
-block carries the root. Without `--rpc` the answer is CONSISTENT, exit status 2: the
-arithmetic adds up, but it runs over numbers the certificate supplies, and anyone can
-invent a certificate that adds up. Scripts that treated exit status 0 from a run without
-`--rpc` as success must add a node, or accept 2.
+`lks_verify.py` and `lks_log.py` say VALID only when a node you chose confirmed that a
+transaction in a block carries the root. Without `--rpc` the answer is CONSISTENT, exit
+status 2: the arithmetic adds up, but it runs over numbers the certificate supplies, and
+anyone can invent a certificate that adds up. Scripts that treated exit status 0 from a
+run without `--rpc` as success must add a node, or accept 2.
 
 The verification page recomputes the record and the Merkle root in the browser, but the
 blockchain and Bitcoin entries it shows come from this service, and it says so.
+
+## LKS Log
+
+Seals system and activity logs, as a layer over the notary primitive like Trace:
+one batcher, one watcher, one Bitcoin anchor.
+
+```
+log lines            on the customer's machine, never sent
+  | salted fingerprints, Merkle tree     lks_log.py
+entries_root
+  | canonical seal, chained to the previous one
+seal_hash            what reaches the service
+  | an ordinary notarisation, one leaf of the batch tree
+batch root           OP_RETURN on LKSCOIN, then OpenTimestamps on Bitcoin
+```
+
+`lks_log.py` is both agent and verifier: one file, standard library only, like
+`lks_verify.py`. `tests/test_log.py` holds it to the service byte for byte.
+
+```bash
+export LKS_LOG_API_KEY=...
+python3 lks_log.py init --state /var/lib/lks-log --name web-1 --source /var/log/auth.log
+python3 lks_log.py run --state /var/lib/lks-log
+
+python3 lks_log.py verify-period --state /var/lib/lks-log
+python3 lks_log.py prove --state /var/lib/lks-log --text "session opened" -o entry.json
+python3 lks_log.py verify-proof --proof entry.json --rpc http://user:pass@127.0.0.1:3344
+```
+
+Pass `--certificates --rpc <node>` to `verify-period` for the full check. Exit status:
+0 VALID, 1 INVALID, 2 anything short of that, either lines that could not be checked or
+seals not confirmed on a node. Monitoring that only cares about tampering can treat 1
+as the alarm; 2 is what a run without a node always returns.
+
+Behaviour worth knowing:
+
+* **An empty batch is still a seal.** Otherwise a stopped agent and a quiet system
+  would look the same. A pause longer than two intervals is reported as a gap, based
+  on `received_at`, which is part of the notarised record.
+* **Proofs lag the interval.** A seal is provable when its batch is mined, so the
+  window in which a line is unprotected is the agent's interval plus
+  `BATCH_INTERVAL_SECONDS`. Sealing every minute does little while batches go out
+  every ten.
+* **A replaced file is INCOMPLETE, not INVALID.** If no line matches and the first
+  bytes differ, it cannot be told apart from rotation. It is never VALID, and
+  `--alias` points the check at the rotated copy.
+* **The agent reads files.** Send syslog to a file first. Lines written to the old
+  file between the last seal and a rotation are missed unless the rotation hook runs
+  `seal`.
+* **The state directory matters.** Without it the seals stand, but single lines can
+  no longer be proved. Back it up with the logs.
+* **Write rights.** A stream belongs to the API key that created it, and there is no
+  anonymous tier. Whoever holds that key can append false seals, but cannot replace
+  ones already accepted.
 
 ## What this is not
 
