@@ -3,12 +3,12 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import quote
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 import logging
 
-from . import __version__, mailer, repository, trace, trace_repo
+from . import __version__, log as lks_log, log_repo, mailer, repository, trace, trace_repo
 from .leaf import as_utc, canonical_record
 from .config import settings
 from .db import get_session
@@ -265,8 +265,6 @@ def batch_ots(batch_id: str, session: Session = Depends(get_session)):
     batch = session.get(Batch, batch_id)
     if batch is None or batch.ots_proof is None:
         raise HTTPException(status_code=404, detail="no OpenTimestamps proof for this batch")
-    from fastapi.responses import Response
-
     return Response(
         content=batch.ots_proof,
         media_type="application/octet-stream",
@@ -463,6 +461,153 @@ def trace_lot(lot_id: str, session: Session = Depends(get_session)) -> dict[str,
     }
 
 
+# --- LKS Log -------------------------------------------------------------
+
+class LogStreamBody(BaseModel):
+    name: str = Field(min_length=1, max_length=120,
+                      description="A label. Readable by anyone holding the stream id")
+    interval_seconds: int = Field(default=300, ge=60, le=86400,
+                                  description="How often the agent promises to seal")
+
+
+class LogSealBody(BaseModel):
+    sequence: int = Field(ge=1)
+    entry_count: int = Field(ge=0)
+    window_start: datetime
+    window_end: datetime
+    entries_root: str | None = None
+    previous_seal: str | None = None
+
+    @field_validator("entries_root", "previous_seal")
+    @classmethod
+    def _valid_digest(cls, value: str | None) -> str | None:
+        if value and not HEX64.match(value):
+            raise ValueError("must be 64 hex characters (SHA-256)")
+        return value.lower() if value else None
+
+
+def required_api_key(key: ApiKey | None = Depends(optional_api_key)) -> ApiKey:
+    """Log has no anonymous tier: a stream needs an owner, or anyone could extend
+    somebody else's history."""
+    if key is None:
+        raise HTTPException(status_code=401, detail="an API key is required")
+    return key
+
+
+@app.post("/api/v1/log/streams", status_code=201)
+def log_create_stream(
+    body: LogStreamBody,
+    session: Session = Depends(get_session),
+    key: ApiKey = Depends(required_api_key),
+) -> dict[str, Any]:
+    stream = log_repo.create_stream(session, body.name, body.interval_seconds, key)
+    return {
+        "stream_id": stream.id,
+        "name": stream.name,
+        "interval_seconds": stream.interval_seconds,
+        "stream_url": f"{settings.public_base_url}/log?stream={stream.id}",
+    }
+
+
+@app.post("/api/v1/log/streams/{stream_id}/seals", status_code=202)
+def log_append_seal(
+    stream_id: str,
+    body: LogSealBody,
+    response: Response,
+    session: Session = Depends(get_session),
+    key: ApiKey = Depends(required_api_key),
+) -> dict[str, Any]:
+    """Append one seal and queue its proof.
+
+    202, like /notarize: the seal is provable once its batch is mined. A 409 says
+    which sequence the stream expects, so an agent that is out of step can stop
+    and report it instead of guessing.
+    """
+    stream = log_repo.get_stream(session, stream_id, lock=True)
+    if stream is None:
+        raise HTTPException(status_code=404, detail="unknown stream")
+    if stream.requester_id != key.id:
+        raise HTTPException(status_code=403, detail="this stream belongs to another API key")
+    try:
+        seal, proof_row, created = log_repo.record_seal(
+            session, stream, key,
+            sequence=body.sequence, entry_count=body.entry_count,
+            window_start=body.window_start, window_end=body.window_end,
+            entries_root=body.entries_root, previous_seal=body.previous_seal,
+        )
+    except log_repo.SealConflict as exc:
+        raise HTTPException(status_code=409, detail={
+            "error": exc.detail,
+            "expected_sequence": exc.expected_sequence,
+            "expected_previous": exc.expected_previous,
+        }) from exc
+    except lks_log.LogError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not created:
+        response.status_code = 200
+    return {
+        "sequence": seal.sequence,
+        "seal_hash": seal.seal_hash.hex(),
+        "canonical_record": seal.canonical_record,
+        "certificate_id": proof_row.id,
+        "verify_url": f"{settings.public_base_url}/v/{proof_row.id}",
+        "created": created,
+    }
+
+
+@app.get("/api/v1/log/streams/{stream_id}")
+def log_stream(stream_id: str, session: Session = Depends(get_session)) -> dict[str, Any]:
+    """The latest seals of a stream, with the chain and gap checks over them.
+
+    Public like every read here, but there is no listing: the stream id is
+    unguessable, and who seals what and how often is the customer's business.
+    To check a whole stream, walk /seals with lks_log.py.
+    """
+    stream = log_repo.get_stream(session, stream_id)
+    if stream is None:
+        raise HTTPException(status_code=404, detail="unknown stream")
+
+    base = settings.public_base_url
+    seals = [log_repo.seal_to_json(*row, base)
+             for row in log_repo.list_seals(session, stream_id, limit=100, newest=True)]
+    first_previous = seals[0]["previous_seal"] if seals else None
+    times = [(s["sequence"], datetime.fromisoformat(s["received_at"].replace("Z", "+00:00")))
+             for s in seals]
+    return {
+        "stream_id": stream.id,
+        "name": stream.name,
+        "interval_seconds": stream.interval_seconds,
+        "seal_count": stream.last_sequence,
+        "last_seal_hash": stream.last_seal_hash.hex() if stream.last_seal_hash else None,
+        "created_at": lks_log.format_time(repository.as_utc(stream.created_at)),
+        "seals": seals,
+        "checks": {
+            "from_sequence": seals[0]["sequence"] if seals else None,
+            "chain_problems": lks_log.check_chain(seals, first_previous),
+            "gaps": lks_log.find_gaps(times, stream.interval_seconds,
+                                      datetime.now(timezone.utc)),
+        },
+        "spec": {
+            "entry_leaf": "SHA-256('LKSLOG1\\0' || salt || line), salt = HMAC-SHA256(secret, index)",
+            "entries_root": "Merkle root of the leaves, same tree rule as the notary",
+            "seal_hash": "SHA-256 of canonical_record (JCS, RFC 8785)",
+            "chaining": "each seal commits to the previous one via previous_seal",
+            "proof": "the seal hash is notarised; follow verify_url for the chain proof",
+        },
+    }
+
+
+@app.get("/api/v1/log/streams/{stream_id}/seals")
+def log_seals(
+    stream_id: str, after: int = 0, limit: int = 200, session: Session = Depends(get_session)
+) -> dict[str, Any]:
+    if log_repo.get_stream(session, stream_id) is None:
+        raise HTTPException(status_code=404, detail="unknown stream")
+    base = settings.public_base_url
+    return {"seals": [log_repo.seal_to_json(*row, base)
+                      for row in log_repo.list_seals(session, stream_id, after, limit)]}
+
+
 @app.get("/api/v1/audit/verify")
 def audit_verify(session: Session = Depends(get_session)) -> dict[str, Any]:
     ok, broken = repository.verify_audit_chain(session)
@@ -496,6 +641,20 @@ def lot_page() -> FileResponse:
     """Public lot history. The identifier travels in the query string so that a
     GS1 Digital Link, which contains slashes, survives being passed around."""
     return FileResponse(STATIC_DIR / "lot.html")
+
+
+@app.get("/log")
+def log_page() -> FileResponse:
+    """Public view of one log stream. No listing: it needs the stream id."""
+    return FileResponse(STATIC_DIR / "log.html")
+
+
+@app.get("/lks_log.py")
+def log_agent_download() -> FileResponse:
+    """The agent and verifier, one file. Served from the working tree, so what is
+    downloaded is what the tests ran against."""
+    return FileResponse(STATIC_DIR.parent / "lks_log.py", media_type="text/x-python",
+                        filename="lks_log.py")
 
 
 @app.get("/notarize")

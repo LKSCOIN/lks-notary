@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Log stream — LKS Log | LKSCOIN</title>
+<meta name="description" content="The public seals of an LKS Log stream: fingerprints of log batches recorded on the LKSCOIN blockchain. The logs themselves stay with their owner.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#175DAB">
+<link rel="icon" href="/static/assets/img/favicon.ico" sizes="any">
+<link rel="icon" href="/static/assets/img/favicon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="/static/assets/img/apple-touch-icon.png">
+<link rel="stylesheet" href="/static/assets/css/lks.css">
+<style>
+  /* Page-specific only. Everything else comes from the site design system. */
+  .hash-input{width:100%;padding:14px 16px;border:1px solid var(--line);border-radius:var(--radius-sm);
+        font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86rem;color:var(--ink-soft);background:#fff}
+  .hash-input:focus{outline:none;border-color:var(--lks-blue-light);box-shadow:0 0 0 3px rgba(46,134,214,.14)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.8rem;word-break:break-all}
+  .feed{width:100%;border-collapse:collapse;font-size:.9rem}
+  .feed th{text-align:left;padding:11px 14px;background:var(--surface);color:var(--ink);
+        font-size:.74rem;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid var(--line)}
+  .feed td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  .feed tbody tr:last-child td{border-bottom:none}
+  .table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:#fff}
+  .lotgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:16px}
+  .lotbox{border:1px solid var(--line);border-radius:var(--radius-sm);padding:14px 16px;background:#fff}
+  .lotbox .l{font-size:.76rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .lotbox .v{font-weight:700;color:var(--ink);word-break:break-all}
+  .banner{border-radius:var(--radius);padding:16px 20px;margin-bottom:20px}
+  .b-ok{background:rgba(30,158,106,.08);border:1px solid rgba(30,158,106,.3);color:#17694A}
+  .b-warn{background:rgba(192,138,30,.09);border:1px solid rgba(192,138,30,.3);color:#7A5710}
+  .b-bad{background:rgba(190,52,42,.08);border:1px solid rgba(190,52,42,.3);color:#8E2620}
+  button.btn{font:inherit;cursor:pointer;border:none}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <nav class="nav" aria-label="Main">
+      <a class="brand" href="https://www.lkschain.io/index.html" aria-label="LKSCOIN — LKS Foundation">
+        <img class="brand-logo" src="/static/assets/img/lks-foundation-logo.png" alt="LKS Foundation" width="680" height="228">
+      </a>
+      <button class="nav-toggle" aria-label="Open menu" aria-expanded="false"><span></span><span></span><span></span></button>
+      <ul class="nav-links">
+        <li><a href="https://www.lkschain.io/notary.html">Notary</a></li>
+        <li><a href="https://www.lkschain.io/trace.html">Trace</a></li>
+        <li><a href="https://www.lkschain.io/log.html">Log</a></li>
+        <li><a href="https://www.lkschain.io/developers.html">Developers</a></li>
+        <li><a class="nav-explorer" href="https://www.lkschain.io/blockchain.html">Explorer</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<section class="hero hero-sub hero-photo">
+  <img class="hero-bg" src="/static/assets/img/hero/circuit-alt.jpg" alt="" width="1920" height="872" decoding="async">
+  <div class="hero-mesh"></div>
+  <div class="container">
+    <span class="eyebrow" style="color:#6FD8EC">LKS Log</span>
+    <h1 id="title">Log stream</h1>
+    <p class="hero-lead">The public seals of a log stream. Each one is a fingerprint of a batch of log lines, recorded on the LKSCOIN blockchain. The lines themselves never leave their owner's systems, and are not on this page.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="card" style="margin-bottom:26px">
+      <label for="lookup" style="display:block;font-weight:600;color:var(--ink);margin-bottom:8px">Stream id</label>
+      <input class="hash-input" type="text" id="lookup" placeholder="6ff49c97-d12e-42ca-9c80-d8bde127b851" spellcheck="false">
+      <div class="btn-row" style="margin-top:14px">
+        <button class="btn btn-primary btn-sm" id="go">Open the stream</button>
+      </div>
+    </div>
+    <div id="out"></div>
+
+    <div class="card" style="margin-top:20px">
+      <h3 style="margin-top:0">Checking this yourself</h3>
+      <p class="muted">This page reports what the service holds. To check your logs against the
+      seals without trusting it, use <a href="/lks_log.py">lks_log.py</a>: one file, standard
+      library only.</p>
+      <p class="mb-0 muted">Seals prove that sealed lines have not changed since. They do not prove
+      that those lines were true when written.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-bottom">
+      <span>&copy; <span data-year></span> LKS Foundation — Italian non-profit foundation</span>
+      <span><a href="https://www.lkschain.io/legal.html" style="display:inline">Legal &amp; privacy</a> &nbsp;·&nbsp; <a href="https://www.lkschain.io/legal.html#cookies" style="display:inline">Cookies</a></span>
+    </div>
+  </div>
+</footer>
+
+<script src="/static/assets/js/lks.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const when = s => s ? esc(s.replace("T", " ").replace("Z", "")) : "";
+const out = $("out");
+
+function state(p){
+  return p.anchored ? "anchored to Bitcoin"
+       : p.status === "confirmed" ? "confirmed on chain"
+       : p.status === "batched" ? "written to the chain, awaiting the block"
+       : "queued for the next batch";
+}
+
+function banner(d){
+  const c = d.checks;
+  if (c.chain_problems.length)
+    return `<div class="banner b-bad"><strong>The chain of seals has problems.</strong>
+      ${c.chain_problems.map(esc).join("; ")}</div>`;
+  const gaps = c.gaps.map(g => g.to
+    ? `after seal ${g.after_sequence}: ${when(g.from)} to ${when(g.to)} UTC`
+    : `no seal since ${when(g.from)} UTC`);
+  if (gaps.length)
+    return `<div class="banner b-warn"><strong>Pauses in sealing.</strong> Nothing was sealed
+      ${gaps.join("; ")}. Lines written during a pause are sealed when it ends, so they could
+      have been changed in between.</div>`;
+  return `<div class="banner b-ok"><strong>No problems in the latest seals.</strong> They link to
+    one another and arrive at the promised interval.</div>`;
+}
+
+function render(d){
+  const rows = [...d.seals].reverse().map(s => `
+    <tr>
+      <td>${s.sequence}</td>
+      <td class="muted">${when(s.received_at)}</td>
+      <td>${s.entry_count}</td>
+      <td class="mono">${esc(s.seal_hash.slice(0, 16))}…</td>
+      <td>${esc(state(s.proof))} · <a href="${esc(s.proof.verify_url)}">verify</a></td>
+    </tr>`).join("");
+  const shown = d.seal_count > d.seals.length
+    ? `The latest ${d.seals.length} of ${d.seal_count}, newest first.` : "Newest first.";
+  return `${banner(d)}
+    <div class="card" style="margin-bottom:20px">
+      <h3 style="margin-top:0">${esc(d.name)}</h3>
+      <div class="lotgrid">
+        <div class="lotbox"><div class="l">Seals</div><div class="v">${d.seal_count}</div></div>
+        <div class="lotbox"><div class="l">Interval</div><div class="v">${d.interval_seconds} s</div></div>
+        <div class="lotbox"><div class="l">Created (UTC)</div><div class="v">${when(d.created_at)}</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Seals</h3>
+      <p class="muted">${shown}</p>
+      ${d.seals.length ? `<div class="table-scroll"><table class="feed">
+        <thead><tr><th>#</th><th>Received (UTC)</th><th>Lines</th><th>Seal</th><th>Proof</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>` : '<p class="mb-0 muted">Nothing sealed yet.</p>'}
+    </div>`;
+}
+
+async function load(id){
+  out.innerHTML = '<div class="card muted">Loading…</div>';
+  try{
+    const r = await fetch("/api/v1/log/streams/" + encodeURIComponent(id));
+    if (r.status === 404){
+      out.innerHTML = '<div class="card"><h3>Unknown stream</h3><p class="mb-0 muted">'
+        + 'No stream has this id. Streams are not listed, so check that it was copied in full.</p></div>';
+      return;
+    }
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    $("title").textContent = data.name;
+    out.innerHTML = render(data);
+  }catch(err){
+    out.innerHTML = `<div class="card"><h3>Could not load the stream</h3>
+      <p class="mb-0 muted">${esc(err.message)}</p></div>`;
+  }
+}
+
+$("go").addEventListener("click", () => {
+  const v = $("lookup").value.trim();
+  if (v) { history.replaceState(null, "", "/log?stream=" + encodeURIComponent(v)); load(v); }
+});
+$("lookup").addEventListener("keydown", e => { if (e.key === "Enter") $("go").click(); });
+
+const fromUrl = new URLSearchParams(location.search).get("stream");
+if (fromUrl){ $("lookup").value = fromUrl; load(fromUrl); }
+</script>
+</body>
+</html>

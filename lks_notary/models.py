@@ -137,6 +137,46 @@ class TraceLink(Base):
     __table_args__ = (UniqueConstraint("parent_lot", "child_lot", "event_id", name="edge"),)
 
 
+class LogStream(Base):
+    """One sequence of seals, written by one agent.
+
+    ``requester_id`` is mandatory: unlike a one-off notarisation, a stream has a
+    single writer, and only that key may extend its history.
+    """
+
+    __tablename__ = "log_streams"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    requester_id: Mapped[str] = mapped_column(String(36), ForeignKey("api_keys.id"))
+    interval_seconds: Mapped[int] = mapped_column(Integer)
+    last_sequence: Mapped[int] = mapped_column(BigInteger, default=0)
+    last_seal_hash: Mapped[bytes | None] = mapped_column(LargeBinary(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class LogSeal(Base):
+    """One sealed batch of log entries. The entries themselves are never here."""
+
+    __tablename__ = "log_seals"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    stream_id: Mapped[str] = mapped_column(String(36), ForeignKey("log_streams.id"))
+    sequence: Mapped[int] = mapped_column(BigInteger)
+    entries_root: Mapped[bytes | None] = mapped_column(LargeBinary(32), nullable=True)
+    entry_count: Mapped[int] = mapped_column(Integer)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    window_end: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    canonical_record: Mapped[str] = mapped_column(Text)
+    seal_hash: Mapped[bytes] = mapped_column(LargeBinary(32), unique=True)
+    previous_hash: Mapped[bytes | None] = mapped_column(LargeBinary(32), nullable=True)
+    notarization_id: Mapped[str] = mapped_column(String(36), ForeignKey("notarizations.id"))
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (UniqueConstraint("stream_id", "sequence", name="stream_sequence"),)
+
+
 class AnonQuota(Base):
     """Daily counter per anonymous submitter.
 
